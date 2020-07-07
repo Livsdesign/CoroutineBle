@@ -64,7 +64,8 @@ dependencies {
 
 扫描注意事项：
 
-	1. Android 7.0以后，系统限制30s内扫描不能超过5次（scan -> stop为一次）
+1. Android 7.0以后，系统限制30s内扫描不能超过5次（scan -> stop为一次）
+
  	2. 以上限制同样以手机ROM的代码决定（国产手机）
 
 > ```groovy
@@ -84,6 +85,11 @@ BleScanner.getInstance().stop()
 ```
 
 ### 连接
+
+> ```groovy
+> //connection基于此开源库实现
+> implementation 'com.clj.fastble:FastBleLib:2.3.4'
+> ```
 
 ```kotlin
 val bleMgr=BleMgr.getInstance(application)

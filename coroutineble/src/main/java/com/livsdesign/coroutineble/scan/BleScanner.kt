@@ -33,22 +33,17 @@ class BleScanner private constructor() {
      *
      */
     private val defaultScanMode = android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER
-    fun scan(@IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode) {
-        //todo 是否可以去掉这个判断
-        if (isScanningLiveData.value == true) {
-            return
-        }
+    private val defaultFilters = emptyList<ScanFilter>()
+    fun scan(
+        @IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode,
+        filters: List<ScanFilter> = defaultFilters
+    ) {
         val settings = ScanSettings.Builder()
             .setLegacy(false)
             .setScanMode(scanMode)
             .setReportDelay(1000)//buffer
             .setUseHardwareBatchingIfSupported(false)//如果设成true的话有的设备会很慢
             .build()
-
-        val filter = ScanFilter.Builder()
-//            .setDeviceName("HK09")
-            .build()
-        val filters = mutableListOf(filter)
         try {
             isScanningLiveData.postValue(true)
             scanCallback = newCallback()
@@ -58,6 +53,7 @@ class BleScanner private constructor() {
             isScanningLiveData.postValue(false)
         }
     }
+
 
     fun stop() {
         try {
