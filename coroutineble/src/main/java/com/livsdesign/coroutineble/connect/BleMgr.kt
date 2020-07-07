@@ -15,7 +15,7 @@ class BleMgr private constructor(app: Application) {
         BleManager.getInstance().setReConnectCount(2, 1000)
     }
 
-    fun createConnection(): BleConnection {
+   private fun createConnection(): BleConnection {
         val connection = BleConnection()
         connections.add(connection)
         return connection
