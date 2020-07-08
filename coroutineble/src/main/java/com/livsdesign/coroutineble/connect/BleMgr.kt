@@ -15,8 +15,8 @@ class BleMgr private constructor(app: Application) {
         BleManager.getInstance().setReConnectCount(2, 1000)
     }
 
-   private fun createConnection(): BleConnection {
-        val connection = BleConnection()
+    private fun createConnection(mac: String): BleConnection {
+        val connection = BleConnection(mac)
         connections.add(connection)
         return connection
     }
@@ -24,13 +24,13 @@ class BleMgr private constructor(app: Application) {
     fun getConnection(mac: String): BleConnection {
         var mConnection: BleConnection? = null
         for (connection in connections) {
-            if (connection.data.mac == mac) {
+            if (connection.mac == mac) {
                 mConnection = connection
                 break
             }
         }
         if (mConnection == null) {
-            mConnection = createConnection()
+            mConnection = createConnection(mac)
         }
         return mConnection
     }

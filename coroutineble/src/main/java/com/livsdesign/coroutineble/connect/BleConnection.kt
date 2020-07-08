@@ -9,25 +9,24 @@ import com.clj.fastble.data.BleDevice
 import com.clj.fastble.exception.BleException
 import com.livsdesign.coroutineble.toHexString
 import com.livsdesign.coroutineble.connect.model.BleResult
-import com.livsdesign.coroutineble.connect.model.ConnectionData
-import com.livsdesign.coroutineble.connect.model.ConnectionState
+import com.livsdesign.coroutineble.connect.model.ConnectionStatus
+import com.livsdesign.coroutineble.connect.model.ConnectionStep
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class BleConnection internal constructor() {
+class BleConnection internal constructor(val mac: String) {
 
-    val data = ConnectionData()//liveData
+    val mStatus = ConnectionStatus()
     private var mDevice: BleDevice? = null
 
-    suspend fun connect(mac: String): BleResult {
-        data.mac = mac
+    suspend fun connect(): BleResult {
         return suspendCancellableCoroutine {
             val callback = object : BleGattCallback() {
                 override fun onStartConnect() {
-                    data.state = ConnectionState.CONNECTING
+                    mStatus.current = ConnectionStep.CONNECTING
                 }
 
                 override fun onDisConnected(
@@ -38,10 +37,10 @@ class BleConnection internal constructor() {
                 ) {
                     gatt?.close()
                     mDevice = device
-                    data.state = if (isActiveDisConnected) {
-                        ConnectionState.DISCONNECTED
+                    mStatus.current = if (isActiveDisConnected) {
+                        ConnectionStep.DISCONNECTED
                     } else {
-                        ConnectionState.LOST
+                        ConnectionStep.LOST
                     }
                 }
 
@@ -51,14 +50,14 @@ class BleConnection internal constructor() {
                     status: Int
                 ) {
                     mDevice = bleDevice
-                    data.state = ConnectionState.CONNECTED
+                    mStatus.current = ConnectionStep.CONNECTED
                     if (it.isActive) {
                         it.resume(BleResult(true, null, "${bleDevice?.device?.address}:连接成功"))
                     }
                 }
 
                 override fun onConnectFail(bleDevice: BleDevice?, exception: BleException?) {
-                    data.state = ConnectionState.FAILED
+                    mStatus.current = ConnectionStep.FAILED
                     mDevice = bleDevice
                     if (it.isActive) {
                         it.resume(
@@ -79,7 +78,7 @@ class BleConnection internal constructor() {
 
     suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || data.state != ConnectionState.CONNECTED) {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                 it.resumeWithException(Throwable("未连接"))
             }
             val callback = object : BleWriteCallback() {
@@ -112,18 +111,18 @@ class BleConnection internal constructor() {
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || data.state != ConnectionState.CONNECTED) {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                 it.resumeWithException(Throwable("未连接"))
             }
             val callback = object : BleReadCallback() {
 
-                override fun onReadSuccess(data: ByteArray?) {
+                override fun onReadSuccess(status: ByteArray?) {
                     if (it.isActive) {
                         it.resume(
                             BleResult(
                                 true,
-                                data ?: ByteArray(0),
-                                "onReadSuccess : ${data?.toHexString()}"
+                                status ?: ByteArray(0),
+                                "onReadSuccess : ${status?.toHexString()}"
                             )
                         )
                     }
@@ -151,13 +150,13 @@ class BleConnection internal constructor() {
     @ExperimentalCoroutinesApi
     suspend fun notify(uuid_service: String, uuid_notify: String): Flow<ByteArray> {
         return callbackFlow {
-            if (mDevice == null || data.state != ConnectionState.CONNECTED) {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                 close(Throwable("未连接"))
             }
             val callback = object : BleNotifyCallback() {
-                override fun onCharacteristicChanged(data: ByteArray?) {
+                override fun onCharacteristicChanged(status: ByteArray?) {
                     if (isActive) {
-                        offer(data ?: ByteArray(0))
+                        offer(status ?: ByteArray(0))
                     }
                 }
 
@@ -180,13 +179,13 @@ class BleConnection internal constructor() {
     @ExperimentalCoroutinesApi
     suspend fun indicate(uuid_service: String, uuid_indicate: String): Flow<ByteArray> {
         return callbackFlow {
-            if (mDevice == null || data.state != ConnectionState.CONNECTED) {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                 close(Throwable("未连接"))
             }
             val callback = object : BleIndicateCallback() {
-                override fun onCharacteristicChanged(data: ByteArray?) {
+                override fun onCharacteristicChanged(status: ByteArray?) {
                     if (isActive) {
-                        offer(data ?: ByteArray(0))
+                        offer(status ?: ByteArray(0))
                     }
                 }
 
@@ -228,7 +227,7 @@ class BleConnection internal constructor() {
     }
 
     fun getServices(): List<BluetoothGattService> {
-        return if (mDevice != null && data.state == ConnectionState.CONNECTED) {
+        return if (mDevice != null && mStatus.current == ConnectionStep.CONNECTED) {
             BleManager.getInstance().getBluetoothGattServices(mDevice)
         } else {
             emptyList()
