@@ -14,7 +14,7 @@ class BleScanner private constructor() {
     /**
      * 在这一秒内扫描到的设备，并未所有扫描到的设备汇总
      */
-    val scanResultLiveData = MutableLiveData<List<BleDevice>>()
+    val scanResultLiveData = MutableLiveData<List<ScanResult>>()
 
 
     private var scanCallback = newCallback()
@@ -77,14 +77,7 @@ class BleScanner private constructor() {
                 if (isScanningLiveData.value != true) {
                     isScanningLiveData.value = true
                 }
-
-                val list = mutableListOf<BleDevice>()
-                for (result in results) {
-                    val bleDevice = BleDevice(result.device, result.rssi, result.scanRecord)
-                    list.add(bleDevice)
-                }
-
-                scanResultLiveData.postValue(list)
+                scanResultLiveData.postValue(results)
             }
         }
     }
