@@ -13,7 +13,7 @@ class BleMgr private constructor(app: Application) {
         BleManager.getInstance().setReConnectCount(2, 1000)
     }
 
-    private fun createConnection(): BleConnection {
+    fun createConnection(): BleConnection {
         return BleConnection()
     }
 
