@@ -8,33 +8,14 @@ import com.clj.fastble.BleManager
  */
 class BleMgr private constructor(app: Application) {
 
-    val connections = mutableListOf<BleConnection>()
-
     init {
         BleManager.getInstance().init(app)
         BleManager.getInstance().setReConnectCount(2, 1000)
     }
 
-    private fun createConnection(mac: String): BleConnection {
-        val connection = BleConnection(mac)
-        connections.add(connection)
-        return connection
+    private fun createConnection(): BleConnection {
+        return BleConnection()
     }
-
-    fun getConnection(mac: String): BleConnection {
-        var mConnection: BleConnection? = null
-        for (connection in connections) {
-            if (connection.mac == mac) {
-                mConnection = connection
-                break
-            }
-        }
-        if (mConnection == null) {
-            mConnection = createConnection(mac)
-        }
-        return mConnection
-    }
-
 
     companion object {
 
@@ -46,7 +27,6 @@ class BleMgr private constructor(app: Application) {
                 return instance ?: BleMgr(app).also { instance = it }
             }
         }
-
 
     }
 }

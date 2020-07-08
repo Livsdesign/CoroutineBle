@@ -17,12 +17,12 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-class BleConnection internal constructor(val mac: String) {
+class BleConnection internal constructor() {
 
     val mStatus = ConnectionStatus()
     private var mDevice: BleDevice? = null
 
-    suspend fun connect(): BleResult {
+    suspend fun connect(mac: String): BleResult {
         return suspendCancellableCoroutine {
             val callback = object : BleGattCallback() {
                 override fun onStartConnect() {
@@ -52,7 +52,7 @@ class BleConnection internal constructor(val mac: String) {
                     mDevice = bleDevice
                     mStatus.current = ConnectionStep.CONNECTED
                     if (it.isActive) {
-                        it.resume(BleResult(true, null, "${bleDevice?.device?.address}:连接成功"))
+                        it.resume(BleResult(true, null, "${bleDevice?.mac}:连接成功"))
                     }
                 }
 
@@ -64,17 +64,33 @@ class BleConnection internal constructor(val mac: String) {
                             BleResult(
                                 false,
                                 null,
-                                "${bleDevice?.device?.address}=> ${exception?.description}"
+                                "${bleDevice?.mac}=> ${exception?.description}"
                             )
                         )
                     }
                 }
             }
             if (it.isActive) {
-                BleManager.getInstance().connect(mac, callback)
+                val bleDevices = BleManager.getInstance().allConnectedDevice
+                var connectedDevice: BleDevice? = null
+                for (bleDevice in bleDevices) {
+                    if (bleDevice.mac == mac) {
+                        connectedDevice = bleDevice
+                        break
+                    }
+                }
+                if (connectedDevice == null) {
+                    BleManager.getInstance().connect(mac, callback)
+                } else {
+                    //这个会导致其他对象对此
+                    BleManager.getInstance().getBleBluetooth(connectedDevice)
+                        .addConnectGattCallback(callback)
+                    it.resume(BleResult(true, null, "${connectedDevice.mac}:连接成功"))
+                }
             }
         }
     }
+
 
     suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
         return suspendCancellableCoroutine {
