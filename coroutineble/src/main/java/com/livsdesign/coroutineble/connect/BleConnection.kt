@@ -85,6 +85,7 @@ class BleConnection internal constructor() {
                     //这个会导致其他对象对此
                     BleManager.getInstance().getBleBluetooth(connectedDevice)
                         .addConnectGattCallback(callback)
+                    mStatus.current = ConnectionStep.CONNECTED
                     it.resume(BleResult(true, null, "${connectedDevice.mac}:连接成功"))
                 }
             }
@@ -219,6 +220,30 @@ class BleConnection internal constructor() {
             }
             if (isActive) {
                 BleManager.getInstance().indicate(mDevice, uuid_service, uuid_indicate, callback)
+            }
+        }
+    }
+
+    suspend fun setMtu(size: Int): Int {
+        return suspendCancellableCoroutine {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                it.resumeWithException(Throwable("未连接"))
+            }
+            val callback = object : BleMtuChangedCallback() {
+                override fun onMtuChanged(mtu: Int) {
+                    if (it.isActive) {
+                        it.resume(mtu)
+                    }
+                }
+
+                override fun onSetMTUFailure(exception: BleException?) {
+                    if (it.isActive) {
+                        it.resume(23)
+                    }
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance().setMtu(mDevice, size, callback)
             }
         }
     }
