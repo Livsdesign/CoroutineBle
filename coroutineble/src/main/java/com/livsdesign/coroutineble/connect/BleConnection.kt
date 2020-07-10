@@ -2,6 +2,7 @@ package com.livsdesign.coroutineble.connect
 
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattService
+import android.util.Log
 import androidx.annotation.IntRange
 import com.clj.fastble.BleManager
 import com.clj.fastble.callback.*
@@ -12,6 +13,7 @@ import com.livsdesign.coroutineble.connect.model.BleResult
 import com.livsdesign.coroutineble.connect.model.ConnectionStatus
 import com.livsdesign.coroutineble.connect.model.ConnectionStep
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlin.coroutines.resume
@@ -190,6 +192,7 @@ class BleConnection internal constructor() {
             if (isActive) {
                 BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
             }
+            awaitClose { Log.e("BleConnection","notify callbackFlow awaitClose") }
         }
     }
 
