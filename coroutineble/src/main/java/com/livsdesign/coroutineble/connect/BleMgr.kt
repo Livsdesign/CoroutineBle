@@ -2,16 +2,19 @@ package com.livsdesign.coroutineble.connect
 
 import android.app.Application
 import com.clj.fastble.BleManager
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 /**
  * todo 连接的配置
  */
+@ExperimentalCoroutinesApi
 class BleMgr private constructor(app: Application) {
 
     init {
         BleManager.getInstance().init(app)
         BleManager.getInstance().setReConnectCount(2, 1000)
     }
+
 
     fun createConnection(): BleConnection {
         return BleConnection()

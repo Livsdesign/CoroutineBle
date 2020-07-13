@@ -19,7 +19,6 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 @ExperimentalCoroutinesApi
-@InternalCoroutinesApi
 class BleConnection internal constructor() {
 
     val mStatus = ConnectionStatus()
