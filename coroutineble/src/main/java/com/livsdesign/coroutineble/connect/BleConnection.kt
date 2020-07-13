@@ -173,9 +173,9 @@ class BleConnection internal constructor() {
                 offer(BleResult(false, null, "未连接"))
             }
             val callback = object : BleNotifyCallback() {
-                override fun onCharacteristicChanged(bytes: ByteArray?) {
+                override fun onCharacteristicChanged(status: ByteArray?) {
                     if (isActive) {
-                        offer(BleResult(true, bytes ?: ByteArray(0), null))
+                        offer(BleResult(true, status, null))
                     }
                 }
 
@@ -187,7 +187,7 @@ class BleConnection internal constructor() {
 
                 override fun onNotifySuccess() {
                     if (isActive) {
-                        offer(BleResult(true, null, "success"))
+                        offer(BleResult(true, null, null))
                     }
                 }
 
@@ -195,7 +195,7 @@ class BleConnection internal constructor() {
             if (isActive) {
                 BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
             }
-            awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
+            awaitClose()
         }
     }
 
@@ -206,15 +206,15 @@ class BleConnection internal constructor() {
                 offer(BleResult(false, null, "未连接"))
             }
             val callback = object : BleIndicateCallback() {
-                override fun onCharacteristicChanged(bytes: ByteArray?) {
+                override fun onCharacteristicChanged(status: ByteArray?) {
                     if (isActive) {
-                        offer(BleResult(true, bytes ?: ByteArray(0), null))
+                        offer(BleResult(true, status, null))
                     }
                 }
 
                 override fun onIndicateSuccess() {
                     if (isActive) {
-                        offer(BleResult(true, null, "success"))
+                        offer(BleResult(true, null, null))
                     }
                 }
 
@@ -230,6 +230,7 @@ class BleConnection internal constructor() {
             if (isActive) {
                 BleManager.getInstance().indicate(mDevice, uuid_service, uuid_indicate, callback)
             }
+            awaitClose()
         }
     }
 
