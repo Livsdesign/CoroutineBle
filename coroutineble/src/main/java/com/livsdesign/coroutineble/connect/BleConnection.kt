@@ -167,54 +167,60 @@ class BleConnection internal constructor() {
 
 
     @ExperimentalCoroutinesApi
-    fun notify(uuid_service: String, uuid_notify: String): Flow<ByteArray> {
+    fun notify(uuid_service: String, uuid_notify: String): Flow<BleResult> {
         return callbackFlow {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                close(Throwable("未连接"))
+                offer(BleResult(false, null, "未连接"))
             }
             val callback = object : BleNotifyCallback() {
-                override fun onCharacteristicChanged(status: ByteArray?) {
+                override fun onCharacteristicChanged(bytes: ByteArray?) {
                     if (isActive) {
-                        offer(status ?: ByteArray(0))
+                        offer(BleResult(true, bytes ?: ByteArray(0), null))
                     }
                 }
 
                 override fun onNotifyFailure(exception: BleException?) {
                     if (isActive) {
-                        close(Throwable(exception?.description))
+                        offer(BleResult(false, null, exception?.description))
                     }
                 }
 
                 override fun onNotifySuccess() {
+                    if (isActive) {
+                        offer(BleResult(true, null, "success"))
+                    }
                 }
 
             }
             if (isActive) {
                 BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
             }
-            awaitClose { Log.e("BleConnection","notify callbackFlow awaitClose") }
+            awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
         }
     }
 
     @ExperimentalCoroutinesApi
-    fun indicate(uuid_service: String, uuid_indicate: String): Flow<ByteArray> {
+    fun indicate(uuid_service: String, uuid_indicate: String): Flow<BleResult> {
         return callbackFlow {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                close(Throwable("未连接"))
+                offer(BleResult(false, null, "未连接"))
             }
             val callback = object : BleIndicateCallback() {
-                override fun onCharacteristicChanged(status: ByteArray?) {
+                override fun onCharacteristicChanged(bytes: ByteArray?) {
                     if (isActive) {
-                        offer(status ?: ByteArray(0))
+                        offer(BleResult(true, bytes ?: ByteArray(0), null))
                     }
                 }
 
                 override fun onIndicateSuccess() {
+                    if (isActive) {
+                        offer(BleResult(true, null, "success"))
+                    }
                 }
 
                 override fun onIndicateFailure(exception: BleException?) {
                     if (isActive) {
-                        close(Throwable(exception?.description))
+                        offer(BleResult(false, null, exception?.description))
                     }
 
                 }
