@@ -14,7 +14,11 @@ import com.livsdesign.coroutineble.connect.model.ConnectionStatus
 import com.livsdesign.coroutineble.connect.model.ConnectionStep
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.internal.ChannelFlow
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -165,84 +169,70 @@ class BleConnection internal constructor() {
         }
     }
 
-    var notifyProducerScope: ProducerScope<ByteArray>? = null
-    var notifyFlow = channelFlow<ByteArray> {
-        notifyProducerScope = this
-    }
-
-    suspend fun setupNotification(uuid_service: String, uuid_notify: String): BleResult {
-        return suspendCancellableCoroutine {
+    fun setupNotification(uuid_service: String, uuid_notify: String): Flow<BleResult> {
+        return callbackFlow {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                if (it.isActive) {
-                    it.resume(BleResult(false, null, "未连接"))
+                if (isActive) {
+                    offer(BleResult(false, null, "未连接"))
                 }
             }
             val callback = object : BleNotifyCallback() {
                 override fun onCharacteristicChanged(bytes: ByteArray?) {
-                    bytes?.let {
-                        GlobalScope.launch(Dispatchers.Main) {
-                            notifyProducerScope?.send(it)
-                        }
+                    if (isActive) {
+                        offer(BleResult(true, bytes ?: ByteArray(0), null))
                     }
                 }
 
                 override fun onNotifyFailure(exception: BleException?) {
-                    if (it.isActive) {
-                        it.resume(BleResult(false, null, exception?.description))
+                    if (isActive) {
+                        offer(BleResult(false, null, exception?.description))
                     }
-                    notifyProducerScope=null
                 }
 
                 override fun onNotifySuccess() {
-                    if (it.isActive) {
-                        it.resume(BleResult(true, null, "success"))
+                    if (isActive) {
+                        offer(BleResult(true, null, "success"))
                     }
                 }
 
             }
-            if (it.isActive) {
+            if (isActive) {
                 BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
             }
+            awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
         }
     }
 
-    var indicateProducerScope: ProducerScope<ByteArray>? = null
-    var indicateFlow = channelFlow<ByteArray> {
-        indicateProducerScope = this
-    }
 
-    suspend fun setupIndicate(uuid_service: String, uuid_indicate: String): BleResult {
-        return suspendCancellableCoroutine {
+    fun setupIndicate(uuid_service: String, uuid_indicate: String): Flow<BleResult> {
+        return callbackFlow {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                if (it.isActive) {
-                    it.resume(BleResult(false, null, "未连接"))
+                if (isActive) {
+                    offer(BleResult(false, null, "未连接"))
                 }
             }
             val callback = object : BleIndicateCallback() {
                 override fun onCharacteristicChanged(bytes: ByteArray?) {
-                    bytes?.let {
-                        GlobalScope.launch(Dispatchers.Main) {
-                            indicateProducerScope?.send(it)
-                        }
+                    if (isActive) {
+                        offer(BleResult(true, bytes ?: ByteArray(0), null))
                     }
                 }
 
                 override fun onIndicateSuccess() {
-                    if (it.isActive) {
-                        it.resume(BleResult(true, null, "success"))
+                    if (isActive) {
+                        offer(BleResult(true, null, "success"))
                     }
                 }
 
                 override fun onIndicateFailure(exception: BleException?) {
-                    if (it.isActive) {
-                        it.resume(BleResult(false, null, exception?.description))
+                    if (isActive) {
+                        offer(BleResult(false, null, exception?.description))
                     }
-                    indicateProducerScope=null
                 }
 
 
             }
-            if (it.isActive) {
+            if (isActive) {
                 BleManager.getInstance().indicate(mDevice, uuid_service, uuid_indicate, callback)
             }
         }
@@ -272,6 +262,34 @@ class BleConnection internal constructor() {
         }
     }
 
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
+
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
     /**
      * desc 体现蓝牙操作的响应速度
      *
