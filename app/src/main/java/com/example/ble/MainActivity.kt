@@ -33,32 +33,9 @@ class MainActivity : AppCompatActivity() {
             if (it.ready()) {
                 val bleMgr = BleMgr.getInstance(application)
                 val connection = bleMgr.createConnection()
-                setup(connection)
             }
         })
     }
 
 
-    fun setup(connection: BleConnection) {
-        GlobalScope.launch(Dispatchers.Main) {
-            val result = connection.connect("55:55:55:34:23:11")
-
-            val flow = if (result.state) {
-                connection.notify(
-                    "00001828-0000-1000-8000-00805F9B34FB",
-                    "00002ADC-0000-1000-8000-00805F9B34FB"
-                )
-            } else {
-                connection.notify(
-                    "00001828-0000-1000-8000-00805F9B34FB",
-                    "00002ADC-0000-1000-8000-00805F9B34FB"
-                )
-            }
-            flow.collect {
-                Log.e("flow", it.toString())
-            }
-
-
-        }
-    }
 }

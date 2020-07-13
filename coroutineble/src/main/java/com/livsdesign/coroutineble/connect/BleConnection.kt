@@ -13,12 +13,13 @@ import com.livsdesign.coroutineble.connect.model.BleResult
 import com.livsdesign.coroutineble.connect.model.ConnectionStatus
 import com.livsdesign.coroutineble.connect.model.ConnectionStep
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.flow.channelFlow
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+@ExperimentalCoroutinesApi
+@InternalCoroutinesApi
 class BleConnection internal constructor() {
 
     val mStatus = ConnectionStatus()
@@ -165,72 +166,86 @@ class BleConnection internal constructor() {
         }
     }
 
+    var notifyProducerScope: ProducerScope<ByteArray>? = null
+    var notifyFlow = channelFlow<ByteArray> {
+        notifyProducerScope = this
+    }
 
-    @ExperimentalCoroutinesApi
-    fun notify(uuid_service: String, uuid_notify: String): Flow<BleResult> {
-        return callbackFlow {
+    suspend fun setupNotification(uuid_service: String, uuid_notify: String): BleResult {
+        return suspendCancellableCoroutine {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                offer(BleResult(false, null, "未连接"))
+                if (it.isActive) {
+                    it.resume(BleResult(false, null, "未连接"))
+                }
             }
             val callback = object : BleNotifyCallback() {
-                override fun onCharacteristicChanged(status: ByteArray?) {
-                    if (isActive) {
-                        offer(BleResult(true, status, null))
+                override fun onCharacteristicChanged(bytes: ByteArray?) {
+                    bytes?.let {
+                        GlobalScope.launch(Dispatchers.Main) {
+                            notifyProducerScope?.send(it)
+                        }
                     }
                 }
 
                 override fun onNotifyFailure(exception: BleException?) {
-                    if (isActive) {
-                        offer(BleResult(false, null, exception?.description))
+                    if (it.isActive) {
+                        it.resume(BleResult(false, null, exception?.description))
                     }
+                    notifyProducerScope=null
                 }
 
                 override fun onNotifySuccess() {
-                    if (isActive) {
-                        offer(BleResult(true, null, null))
+                    if (it.isActive) {
+                        it.resume(BleResult(true, null, "success"))
                     }
                 }
 
             }
-            if (isActive) {
+            if (it.isActive) {
                 BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
             }
-            awaitClose()
         }
     }
 
-    @ExperimentalCoroutinesApi
-    fun indicate(uuid_service: String, uuid_indicate: String): Flow<BleResult> {
-        return callbackFlow {
+    var indicateProducerScope: ProducerScope<ByteArray>? = null
+    var indicateFlow = channelFlow<ByteArray> {
+        indicateProducerScope = this
+    }
+
+    suspend fun setupIndicate(uuid_service: String, uuid_indicate: String): BleResult {
+        return suspendCancellableCoroutine {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                offer(BleResult(false, null, "未连接"))
+                if (it.isActive) {
+                    it.resume(BleResult(false, null, "未连接"))
+                }
             }
             val callback = object : BleIndicateCallback() {
-                override fun onCharacteristicChanged(status: ByteArray?) {
-                    if (isActive) {
-                        offer(BleResult(true, status, null))
+                override fun onCharacteristicChanged(bytes: ByteArray?) {
+                    bytes?.let {
+                        GlobalScope.launch(Dispatchers.Main) {
+                            indicateProducerScope?.send(it)
+                        }
                     }
                 }
 
                 override fun onIndicateSuccess() {
-                    if (isActive) {
-                        offer(BleResult(true, null, null))
+                    if (it.isActive) {
+                        it.resume(BleResult(true, null, "success"))
                     }
                 }
 
                 override fun onIndicateFailure(exception: BleException?) {
-                    if (isActive) {
-                        offer(BleResult(false, null, exception?.description))
+                    if (it.isActive) {
+                        it.resume(BleResult(false, null, exception?.description))
                     }
-
+                    indicateProducerScope=null
                 }
 
 
             }
-            if (isActive) {
+            if (it.isActive) {
                 BleManager.getInstance().indicate(mDevice, uuid_service, uuid_indicate, callback)
             }
-            awaitClose()
         }
     }
 
