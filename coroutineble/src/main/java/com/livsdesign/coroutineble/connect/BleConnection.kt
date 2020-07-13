@@ -167,7 +167,7 @@ class BleConnection internal constructor() {
 
 
     @ExperimentalCoroutinesApi
-    suspend fun notify(uuid_service: String, uuid_notify: String): Flow<ByteArray> {
+    fun notify(uuid_service: String, uuid_notify: String): Flow<ByteArray> {
         return callbackFlow {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                 close(Throwable("未连接"))
@@ -197,7 +197,7 @@ class BleConnection internal constructor() {
     }
 
     @ExperimentalCoroutinesApi
-    suspend fun indicate(uuid_service: String, uuid_indicate: String): Flow<ByteArray> {
+    fun indicate(uuid_service: String, uuid_indicate: String): Flow<ByteArray> {
         return callbackFlow {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                 close(Throwable("未连接"))
