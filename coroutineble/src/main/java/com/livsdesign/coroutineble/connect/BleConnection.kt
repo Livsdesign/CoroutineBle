@@ -235,6 +235,7 @@ class BleConnection internal constructor() {
             if (isActive) {
                 BleManager.getInstance().indicate(mDevice, uuid_service, uuid_indicate, callback)
             }
+            awaitClose { Log.e("BleConnection", "indicate callbackFlow awaitClose") }
         }
     }
 
