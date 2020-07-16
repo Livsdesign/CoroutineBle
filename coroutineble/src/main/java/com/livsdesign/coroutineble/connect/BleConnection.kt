@@ -102,7 +102,7 @@ class BleConnection internal constructor() {
     suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
         return suspendCancellableCoroutine {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                it.resumeWithException(Throwable("未连接"))
+                it.resume(BleResult(false, null, "未连接"))
             }
             val callback = object : BleWriteCallback() {
                 override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
@@ -135,7 +135,8 @@ class BleConnection internal constructor() {
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
         return suspendCancellableCoroutine {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                it.resumeWithException(Throwable("未连接"))
+//                it.resumeWithException(Throwable("未连接"))
+                it.resume(BleResult(false, null, "未连接"))
             }
             val callback = object : BleReadCallback() {
 
@@ -242,7 +243,7 @@ class BleConnection internal constructor() {
     suspend fun setMtu(size: Int): Int {
         return suspendCancellableCoroutine {
             if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                it.resumeWithException(Throwable("未连接"))
+                it.resume(23)
             }
             val callback = object : BleMtuChangedCallback() {
                 override fun onMtuChanged(mtu: Int) {
