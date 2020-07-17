@@ -2,6 +2,7 @@ package com.livsdesign.coroutineble.scan
 
 import androidx.annotation.IntRange
 import androidx.lifecycle.MutableLiveData
+import com.livsdesign.coroutineble.SingleLiveEvent
 import no.nordicsemi.android.support.v18.scanner.*
 
 class BleScanner private constructor() {
@@ -14,7 +15,7 @@ class BleScanner private constructor() {
     /**
      * 在这一秒内扫描到的设备，并未所有扫描到的设备汇总
      */
-    val scanResultLiveData = MutableLiveData<List<ScanResult>>()
+    val scanResultLiveEvent = SingleLiveEvent<List<ScanResult>>()
 
 
     private var scanCallback = newCallback()
@@ -77,7 +78,7 @@ class BleScanner private constructor() {
                 if (isScanningLiveData.value != true) {
                     isScanningLiveData.value = true
                 }
-                scanResultLiveData.postValue(results)
+                scanResultLiveEvent.value = results
             }
         }
     }
