@@ -1,6 +1,7 @@
 package com.livsdesign.coroutineble.connect
 
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
 import android.util.Log
 import androidx.annotation.IntRange
@@ -8,31 +9,31 @@ import com.clj.fastble.BleManager
 import com.clj.fastble.callback.*
 import com.clj.fastble.data.BleDevice
 import com.clj.fastble.exception.BleException
-import com.livsdesign.coroutineble.toHexString
 import com.livsdesign.coroutineble.connect.model.BleResult
 import com.livsdesign.coroutineble.connect.model.ConnectionStatus
 import com.livsdesign.coroutineble.connect.model.ConnectionStep
+import com.livsdesign.coroutineble.toHexString
+import com.livsdesign.coroutineble.toUUID
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.flow.internal.ChannelFlow
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+
 
 @ExperimentalCoroutinesApi
 class BleConnection internal constructor() {
 
     val mStatus = ConnectionStatus()
     private var mDevice: BleDevice? = null
+    private var mGatt: BluetoothGatt? = null
 
     suspend fun connect(mac: String): BleResult {
         return suspendCancellableCoroutine {
             val callback = object : BleGattCallback() {
                 override fun onStartConnect() {
                     mStatus.current = ConnectionStep.CONNECTING
+                    mGatt = null
                 }
 
                 override fun onDisConnected(
@@ -41,6 +42,7 @@ class BleConnection internal constructor() {
                     gatt: BluetoothGatt?,
                     status: Int
                 ) {
+                    mGatt = null
                     gatt?.close()
                     mDevice = device
                     mStatus.current = if (isActiveDisConnected) {
@@ -55,6 +57,7 @@ class BleConnection internal constructor() {
                     gatt: BluetoothGatt?,
                     status: Int
                 ) {
+                    mGatt = gatt
                     mDevice = bleDevice
                     mStatus.current = ConnectionStep.CONNECTED
                     if (it.isActive) {
@@ -63,6 +66,7 @@ class BleConnection internal constructor() {
                 }
 
                 override fun onConnectFail(bleDevice: BleDevice?, exception: BleException?) {
+                    mGatt = null
                     mStatus.current = ConnectionStep.FAILED
                     mDevice = bleDevice
                     if (it.isActive) {
@@ -131,6 +135,21 @@ class BleConnection internal constructor() {
         }
     }
 
+    suspend fun writeNoRsp(
+        uuid_service: String,
+        uuid_write: String,
+        bytes: ByteArray,
+        delay: Long = 10
+    ): Boolean {
+        if (mGatt == null) return false
+        val service = mGatt?.getService(uuid_service.toUUID())
+        val characteristic = service?.getCharacteristic(uuid_write.toUUID())
+        characteristic?.value = bytes
+        characteristic?.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        mGatt?.writeCharacteristic(characteristic)
+        delay(delay)
+        return true
+    }
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
         return suspendCancellableCoroutine {
