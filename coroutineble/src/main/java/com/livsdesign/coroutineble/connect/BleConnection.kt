@@ -135,42 +135,28 @@ class BleConnection internal constructor() {
         }
     }
 
-    suspend fun writeSplit(
+    fun writeSplit(
         uuid_service: String,
         uuid_write: String,
-        bytes: ByteArray
-    ): BleResult {
-        return suspendCancellableCoroutine {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                it.resume(BleResult(false, null, "未连接"))
-            }
-            val callback = object : BleWriteCallback() {
+        bytes: ByteArray,
+        callback: SplitCallBack
+    ) {
+        BleManager.getInstance()
+            .write(mDevice, uuid_service, uuid_write, bytes, true, object : BleWriteCallback() {
                 override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
-                    Log.e("onWriteSuccess", "$current;$total")
-                    it.resume(
-                        BleResult(
-                            true,
-                            justWrite ?: ByteArray(0),
-                            "onWriteSuccess : ${bytes.toHexString()}"
-                        )
-                    )
+                    callback.onWrite(current, total, justWrite)
                 }
 
                 override fun onWriteFailure(exception: BleException?) {
-                    it.resume(
-                        BleResult(
-                            false,
-                            null,
-                            "onWriteFailure : ${exception?.description}"
-                        )
-                    )
+                    callback.onFail(exception)
                 }
-            }
-            if (it.isActive) {
-                BleManager.getInstance()
-                    .write(mDevice, uuid_service, uuid_write, bytes, true, callback)
-            }
-        }
+
+            })
+    }
+
+    interface SplitCallBack {
+        fun onWrite(current: Int, total: Int, justWrite: ByteArray?)
+        fun onFail(exception: BleException?)
     }
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
