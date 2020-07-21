@@ -148,7 +148,7 @@ class BleConnection internal constructor() {
                 }
 
                 override fun onWriteFailure(exception: BleException?) {
-                    callback.onFail(exception)
+                    callback.onFail()
                 }
 
             })
@@ -156,7 +156,7 @@ class BleConnection internal constructor() {
 
     interface SplitCallBack {
         fun onWrite(current: Int, total: Int, justWrite: ByteArray?)
-        fun onFail(exception: BleException?)
+        fun onFail()
     }
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
