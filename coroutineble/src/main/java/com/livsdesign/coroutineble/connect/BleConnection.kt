@@ -135,20 +135,42 @@ class BleConnection internal constructor() {
         }
     }
 
-    suspend fun writeNoRsp(
+    suspend fun writeSplit(
         uuid_service: String,
         uuid_write: String,
-        bytes: ByteArray,
-        delay: Long = 10
-    ): Boolean {
-        if (mGatt == null) return false
-        val service = mGatt?.getService(uuid_service.toUUID())
-        val characteristic = service?.getCharacteristic(uuid_write.toUUID())
-        characteristic?.value = bytes
-        characteristic?.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-        mGatt?.writeCharacteristic(characteristic)
-        delay(delay)
-        return true
+        bytes: ByteArray
+    ): BleResult {
+        return suspendCancellableCoroutine {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                it.resume(BleResult(false, null, "未连接"))
+            }
+            val callback = object : BleWriteCallback() {
+                override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
+                    Log.e("onWriteSuccess", "$current;$total")
+                    it.resume(
+                        BleResult(
+                            true,
+                            justWrite ?: ByteArray(0),
+                            "onWriteSuccess : ${bytes.toHexString()}"
+                        )
+                    )
+                }
+
+                override fun onWriteFailure(exception: BleException?) {
+                    it.resume(
+                        BleResult(
+                            false,
+                            null,
+                            "onWriteFailure : ${exception?.description}"
+                        )
+                    )
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance()
+                    .write(mDevice, uuid_service, uuid_write, bytes, true, callback)
+            }
+        }
     }
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
