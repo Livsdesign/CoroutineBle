@@ -12,7 +12,7 @@ class BleMgr private constructor(app: Application) {
 
     init {
         BleManager.getInstance().init(app)
-        BleManager.getInstance().setReConnectCount(2, 1000)
+        BleManager.getInstance().setReConnectCount(5, 250)
     }
 
 
