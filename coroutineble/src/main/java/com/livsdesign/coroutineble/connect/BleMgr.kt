@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 class BleMgr private constructor(app: Application) {
 
     init {
+        //其实就是防止忘记初始化这个
         BleManager.getInstance().init(app)
         BleManager.getInstance().setReConnectCount(5, 250)
     }
@@ -18,6 +19,12 @@ class BleMgr private constructor(app: Application) {
 
     fun createConnection(): BleConnection {
         return BleConnection()
+    }
+
+    fun getAllConnectedDevices(): List<String> {
+        return BleManager.getInstance().allConnectedDevice.map {
+            it.mac
+        }
     }
 
     companion object {

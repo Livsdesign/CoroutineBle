@@ -1,7 +1,6 @@
 package com.livsdesign.coroutineble.connect
 
 import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattService
 import android.util.Log
 import androidx.annotation.IntRange
@@ -13,7 +12,6 @@ import com.livsdesign.coroutineble.connect.model.BleResult
 import com.livsdesign.coroutineble.connect.model.ConnectionStatus
 import com.livsdesign.coroutineble.connect.model.ConnectionStep
 import com.livsdesign.coroutineble.toHexString
-import com.livsdesign.coroutineble.toUUID
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +22,12 @@ import kotlin.coroutines.resume
 @ExperimentalCoroutinesApi
 class BleConnection internal constructor() {
 
+    /**
+     * LiveData是很香，但需要关联LifecycleOwner，如果没有订阅也不会执行
+     */
     val mStatus = ConnectionStatus()
+
+
     private var mDevice: BleDevice? = null
     private var mGatt: BluetoothGatt? = null
 
@@ -241,6 +244,41 @@ class BleConnection internal constructor() {
             }
             if (isActive) {
                 BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
+            }
+            awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
+        }
+    }
+
+    //某些设备如果不按照SIG规范，writeDescriptor会导致回掉异常
+    fun setupNotificationWithoutEnable(uuid_service: String, uuid_notify: String): Flow<BleResult> {
+        return callbackFlow {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                if (isActive) {
+                    offer(BleResult(false, null, "未连接"))
+                }
+            }
+            val callback = object : BleNotifyCallback() {
+                override fun onCharacteristicChanged(bytes: ByteArray?) {
+                    if (isActive) {
+                        offer(BleResult(true, bytes ?: ByteArray(0), null))
+                    }
+                }
+
+                override fun onNotifyFailure(exception: BleException?) {
+                    if (isActive) {
+                        offer(BleResult(false, null, exception?.description))
+                    }
+                }
+
+                override fun onNotifySuccess() {
+                    if (isActive) {
+                        offer(BleResult(true, null, "success"))
+                    }
+                }
+
+            }
+            if (isActive) {
+                BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, false, callback)
             }
             awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
         }

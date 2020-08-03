@@ -9,5 +9,7 @@ class ConnectionStatus : LiveData<ConnectionStatus>() {
             field = value
             postValue(this)
         }
+    
+
 
 }
