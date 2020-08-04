@@ -4,6 +4,7 @@ import androidx.annotation.IntRange
 import androidx.lifecycle.MutableLiveData
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -30,12 +31,14 @@ class BleFlowScanner {
      */
     private val defaultScanMode = android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER
     private val defaultFilters = emptyList<ScanFilter>()
+    var producerScope: ProducerScope<MutableList<ScanResult>>? = null
 
     fun scan(
         @IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode,
         filters: List<ScanFilter> = defaultFilters
     ): Flow<List<ScanResult>> {
         return callbackFlow {
+            producerScope = this
             val callback = object : ScanCallback() {
 
                 override fun onScanFailed(errorCode: Int) {
@@ -72,5 +75,9 @@ class BleFlowScanner {
                 isScanningLiveData.postValue(false)
             }
         }
+    }
+
+    fun cancel() {
+        producerScope?.cancel()
     }
 }
