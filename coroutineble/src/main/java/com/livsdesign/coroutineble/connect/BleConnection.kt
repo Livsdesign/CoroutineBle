@@ -385,6 +385,30 @@ class BleConnection internal constructor() {
         BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
     }
 
+    suspend fun readRssi(): Int {
+        return suspendCancellableCoroutine {
+            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                it.resume(-127)
+            }
+            val callback = object : BleRssiCallback() {
+                override fun onRssiFailure(exception: BleException?) {
+                    if (it.isActive) {
+                        it.resume(-127)
+                    }
+                }
+
+                override fun onRssiSuccess(rssi: Int) {
+                    if (it.isActive) {
+                        it.resume(rssi)
+                    }
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance().readRssi(mDevice, callback)
+            }
+        }
+    }
+
     fun disconnect() {
         mDevice?.run {
             BleManager.getInstance().disconnect(this)
