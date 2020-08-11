@@ -17,7 +17,10 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlin.coroutines.resume
+import kotlin.properties.Delegates
+import kotlin.reflect.KProperty
 
+typealias ConnectionStepChanged = (newStatus: ConnectionStep) -> Unit
 
 @ExperimentalCoroutinesApi
 class BleConnection internal constructor() {
@@ -27,6 +30,19 @@ class BleConnection internal constructor() {
      */
     val mStatus = ConnectionStatus()
 
+    private var internalStatus by Delegates.observable(ConnectionStep.IDLE,
+        { _, _, newValue ->
+            mStatus.current=newValue
+            onStepChanged?.invoke(newValue)
+        })
+
+    private var onStepChanged: ConnectionStepChanged? = null
+
+    
+    fun setOnStatusChangedCallback(onChanged: ConnectionStepChanged) {
+        onStepChanged = onChanged
+    }
+
 
     private var mDevice: BleDevice? = null
     private var mGatt: BluetoothGatt? = null
@@ -35,7 +51,7 @@ class BleConnection internal constructor() {
         return suspendCancellableCoroutine {
             val callback = object : BleGattCallback() {
                 override fun onStartConnect() {
-                    mStatus.current = ConnectionStep.CONNECTING
+                    internalStatus = ConnectionStep.CONNECTING
                     mGatt = null
                 }
 
@@ -48,7 +64,7 @@ class BleConnection internal constructor() {
                     mGatt = null
                     gatt?.close()
                     mDevice = device
-                    mStatus.current = if (isActiveDisConnected) {
+                    internalStatus = if (isActiveDisConnected) {
                         ConnectionStep.DISCONNECTED
                     } else {
                         ConnectionStep.LOST
@@ -62,7 +78,7 @@ class BleConnection internal constructor() {
                 ) {
                     mGatt = gatt
                     mDevice = bleDevice
-                    mStatus.current = ConnectionStep.CONNECTED
+                    internalStatus = ConnectionStep.CONNECTED
                     if (it.isActive) {
                         it.resume(BleResult(true, null, "${bleDevice?.mac}:连接成功"))
                     }
@@ -70,7 +86,7 @@ class BleConnection internal constructor() {
 
                 override fun onConnectFail(bleDevice: BleDevice?, exception: BleException?) {
                     mGatt = null
-                    mStatus.current = ConnectionStep.FAILED
+                    internalStatus = ConnectionStep.FAILED
                     mDevice = bleDevice
                     if (it.isActive) {
                         it.resume(
@@ -98,7 +114,7 @@ class BleConnection internal constructor() {
                     //这个会导致其他对象对此
                     BleManager.getInstance().getBleBluetooth(connectedDevice)
                         .addConnectGattCallback(callback)
-                    mStatus.current = ConnectionStep.CONNECTED
+                    internalStatus = ConnectionStep.CONNECTED
                     it.resume(BleResult(true, null, "${connectedDevice.mac}:连接成功"))
                 }
             }
@@ -108,7 +124,7 @@ class BleConnection internal constructor() {
 
     suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 it.resume(BleResult(false, null, "未连接"))
             }
             val callback = object : BleWriteCallback() {
@@ -144,7 +160,7 @@ class BleConnection internal constructor() {
         bytes: ByteArray
     ): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 it.resume(BleResult(false, null, "未连接"))
             }
             val callback = object : BleWriteCallback() {
@@ -179,7 +195,7 @@ class BleConnection internal constructor() {
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
 //                it.resumeWithException(Throwable("未连接"))
                 it.resume(BleResult(false, null, "未连接"))
             }
@@ -217,7 +233,7 @@ class BleConnection internal constructor() {
 
     fun setupNotification(uuid_service: String, uuid_notify: String): Flow<BleResult> {
         return callbackFlow {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 if (isActive) {
                     offer(BleResult(false, null, "未连接"))
                 }
@@ -252,7 +268,7 @@ class BleConnection internal constructor() {
     //某些设备如果不按照SIG规范，writeDescriptor会导致回掉异常
     fun setupNotificationWithoutEnable(uuid_service: String, uuid_notify: String): Flow<BleResult> {
         return callbackFlow {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 if (isActive) {
                     offer(BleResult(false, null, "未连接"))
                 }
@@ -287,7 +303,7 @@ class BleConnection internal constructor() {
 
     fun setupIndicate(uuid_service: String, uuid_indicate: String): Flow<BleResult> {
         return callbackFlow {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 if (isActive) {
                     offer(BleResult(false, null, "未连接"))
                 }
@@ -322,7 +338,7 @@ class BleConnection internal constructor() {
 
     suspend fun setMtu(size: Int): Int {
         return suspendCancellableCoroutine {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 it.resume(23)
             }
             val callback = object : BleMtuChangedCallback() {
@@ -385,9 +401,12 @@ class BleConnection internal constructor() {
         BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
     }
 
+    /**
+     * 读一次回一次
+     */
     suspend fun readRssi(): Int {
         return suspendCancellableCoroutine {
-            if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 it.resume(-127)
             }
             val callback = object : BleRssiCallback() {
@@ -416,7 +435,7 @@ class BleConnection internal constructor() {
     }
 
     fun getServices(): List<BluetoothGattService> {
-        return if (mDevice != null && mStatus.current == ConnectionStep.CONNECTED) {
+        return if (mDevice != null && internalStatus == ConnectionStep.CONNECTED) {
             BleManager.getInstance().getBluetoothGattServices(mDevice)
         } else {
             emptyList()
