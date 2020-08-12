@@ -32,7 +32,7 @@ class BleConnection internal constructor() {
 
     private var internalStatus by Delegates.observable(ConnectionStep.IDLE,
         { _, _, newValue ->
-            mStatus.current=newValue
+            mStatus.current = newValue
             onStepChanged?.invoke(newValue)
         })
 
@@ -231,7 +231,12 @@ class BleConnection internal constructor() {
         }
     }
 
-    fun setupNotification(uuid_service: String, uuid_notify: String): Flow<BleResult> {
+    //某些设备如果不按照SIG规范，writeDescriptor会导致回掉异常,需要设置useCharacteristicDescriptor=false
+    fun setupNotification(
+        uuid_service: String,
+        uuid_notify: String,
+        useCharacteristicDescriptor: Boolean = true
+    ): Flow<BleResult> {
         return callbackFlow {
             if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 if (isActive) {
@@ -259,47 +264,17 @@ class BleConnection internal constructor() {
 
             }
             if (isActive) {
-                BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, callback)
+                BleManager.getInstance().notify(
+                    mDevice,
+                    uuid_service,
+                    uuid_notify,
+                    useCharacteristicDescriptor,
+                    callback
+                )
             }
             awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
         }
     }
-
-    //某些设备如果不按照SIG规范，writeDescriptor会导致回掉异常
-    fun setupNotificationWithoutEnable(uuid_service: String, uuid_notify: String): Flow<BleResult> {
-        return callbackFlow {
-            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                if (isActive) {
-                    offer(BleResult(false, null, "未连接"))
-                }
-            }
-            val callback = object : BleNotifyCallback() {
-                override fun onCharacteristicChanged(bytes: ByteArray?) {
-                    if (isActive) {
-                        offer(BleResult(true, bytes ?: ByteArray(0), null))
-                    }
-                }
-
-                override fun onNotifyFailure(exception: BleException?) {
-                    if (isActive) {
-                        offer(BleResult(false, null, exception?.description))
-                    }
-                }
-
-                override fun onNotifySuccess() {
-                    if (isActive) {
-                        offer(BleResult(true, null, "success"))
-                    }
-                }
-
-            }
-            if (isActive) {
-                BleManager.getInstance().notify(mDevice, uuid_service, uuid_notify, false, callback)
-            }
-            awaitClose { Log.e("BleConnection", "notify callbackFlow awaitClose") }
-        }
-    }
-
 
     fun setupIndicate(uuid_service: String, uuid_indicate: String): Flow<BleResult> {
         return callbackFlow {
