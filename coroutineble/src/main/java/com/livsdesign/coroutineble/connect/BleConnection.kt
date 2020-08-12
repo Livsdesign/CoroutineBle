@@ -38,8 +38,8 @@ class BleConnection internal constructor() {
 
     private var onStepChanged: ConnectionStepChanged? = null
 
-    
-    fun setOnStatusChangedCallback(onChanged: ConnectionStepChanged) {
+
+    fun setOnStatusChangedCallback(onChanged: ConnectionStepChanged?) {
         onStepChanged = onChanged
     }
 

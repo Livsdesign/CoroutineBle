@@ -25,7 +25,7 @@ class MainActivity : AppCompatActivity() {
             if (it.ready()) {
                 val bleMgr = BleMgr.getInstance(application)
                 val connection = bleMgr.createConnection()
-                connection.mStatus.
+                connection.setOnStatusChangedCallback(null)
             }
         })
     }
