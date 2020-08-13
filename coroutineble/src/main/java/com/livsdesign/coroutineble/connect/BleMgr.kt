@@ -10,7 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 @ExperimentalCoroutinesApi
 class BleMgr {
 
-    var app: Application? = null
+    private var app: Application? = null
 
     fun setup(app: Application) {
         this.app = app

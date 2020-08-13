@@ -14,4 +14,4 @@ import java.lang.Exception
 
 sealed class BleResult(val state: Boolean)
 class Success(val bytes: ByteArray?) : BleResult(true)
-class Failed(exception: Exception) : BleResult(false)
+class Failed(val exception: Exception) : BleResult(false)
