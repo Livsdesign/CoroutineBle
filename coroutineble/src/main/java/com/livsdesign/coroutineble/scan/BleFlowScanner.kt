@@ -31,7 +31,7 @@ class BleFlowScanner {
      */
     private val defaultScanMode = android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER
     private val defaultFilters = emptyList<ScanFilter>()
-    var producerScope: ProducerScope<MutableList<ScanResult>>? = null
+    private var producerScope: ProducerScope<MutableList<ScanResult>>? = null
 
     fun scan(
         @IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode,

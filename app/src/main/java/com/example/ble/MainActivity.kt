@@ -23,7 +23,8 @@ class MainActivity : AppCompatActivity() {
 
         viewModel.envLiveData.observe(this, Observer {
             if (it.ready()) {
-                val bleMgr = BleMgr.getInstance(application)
+                val bleMgr = BleMgr.getInstance()
+                bleMgr.setup(application)
                 val connection = bleMgr.createConnection()
                 connection.setOnStatusChangedCallback(null)
             }
