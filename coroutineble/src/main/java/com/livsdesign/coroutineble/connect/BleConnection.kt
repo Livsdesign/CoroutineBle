@@ -8,9 +8,7 @@ import com.clj.fastble.BleManager
 import com.clj.fastble.callback.*
 import com.clj.fastble.data.BleDevice
 import com.clj.fastble.exception.BleException
-import com.livsdesign.coroutineble.connect.model.BleResult
-import com.livsdesign.coroutineble.connect.model.ConnectionStatus
-import com.livsdesign.coroutineble.connect.model.ConnectionStep
+import com.livsdesign.coroutineble.connect.model.*
 import com.livsdesign.coroutineble.toHexString
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.awaitClose
@@ -18,7 +16,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlin.coroutines.resume
 import kotlin.properties.Delegates
-import kotlin.reflect.KProperty
 
 typealias ConnectionStepChanged = (newStatus: ConnectionStep) -> Unit
 
@@ -80,7 +77,7 @@ class BleConnection internal constructor() {
                     mDevice = bleDevice
                     internalStatus = ConnectionStep.CONNECTED
                     if (it.isActive) {
-                        it.resume(BleResult(true, null, "${bleDevice?.mac}:连接成功"))
+                        it.resume(Success(null))
                     }
                 }
 
@@ -89,13 +86,7 @@ class BleConnection internal constructor() {
                     internalStatus = ConnectionStep.FAILED
                     mDevice = bleDevice
                     if (it.isActive) {
-                        it.resume(
-                            BleResult(
-                                false,
-                                null,
-                                "${bleDevice?.mac}=> ${exception?.description}"
-                            )
-                        )
+                        it.resume(exception.toFailed())
                     }
                 }
             }
@@ -115,7 +106,7 @@ class BleConnection internal constructor() {
                     BleManager.getInstance().getBleBluetooth(connectedDevice)
                         .addConnectGattCallback(callback)
                     internalStatus = ConnectionStep.CONNECTED
-                    it.resume(BleResult(true, null, "${connectedDevice.mac}:连接成功"))
+                    it.resume(Success(null))
                 }
             }
         }
@@ -124,28 +115,22 @@ class BleConnection internal constructor() {
 
     suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                it.resume(BleResult(false, null, "未连接"))
+            if (it.isActive) {
+                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                    it.resume(Failed(IllegalArgumentException("未连接")))
+                }
             }
             val callback = object : BleWriteCallback() {
                 override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
-                    it.resume(
-                        BleResult(
-                            true,
-                            justWrite ?: ByteArray(0),
-                            "onWriteSuccess : ${bytes.toHexString()}"
-                        )
-                    )
+                    if (it.isActive) {
+                        it.resume(Success(justWrite ?: ByteArray(0)))
+                    }
                 }
 
                 override fun onWriteFailure(exception: BleException?) {
-                    it.resume(
-                        BleResult(
-                            false,
-                            null,
-                            "onWriteFailure : ${exception?.description}"
-                        )
-                    )
+                    if(it.isActive) {
+                        it.resume(exception.toFailed())
+                    }
                 }
             }
             if (it.isActive) {
@@ -160,30 +145,22 @@ class BleConnection internal constructor() {
         bytes: ByteArray
     ): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                it.resume(BleResult(false, null, "未连接"))
+            if (it.isActive) {
+                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                    it.resume(Failed(IllegalArgumentException("未连接")))
+                }
             }
             val callback = object : BleWriteCallback() {
                 override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
-                    if (current == total) {
-                        it.resume(
-                            BleResult(
-                                true,
-                                justWrite ?: ByteArray(0),
-                                "onWriteSuccess : ${bytes.toHexString()}"
-                            )
-                        )
+                    if (it.isActive && current == total) {
+                        it.resume(Success(justWrite ?: ByteArray(0)))
                     }
                 }
 
                 override fun onWriteFailure(exception: BleException?) {
-                    it.resume(
-                        BleResult(
-                            false,
-                            null,
-                            "onWriteFailure : ${exception?.description}"
-                        )
-                    )
+                    if(it.isActive) {
+                        it.resume(exception.toFailed())
+                    }
                 }
             }
             if (it.isActive) {
@@ -195,33 +172,22 @@ class BleConnection internal constructor() {
 
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
         return suspendCancellableCoroutine {
-            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-//                it.resumeWithException(Throwable("未连接"))
-                it.resume(BleResult(false, null, "未连接"))
+            if (it.isActive) {
+                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                    it.resume(Failed(IllegalArgumentException("未连接")))
+                }
             }
             val callback = object : BleReadCallback() {
 
                 override fun onReadSuccess(status: ByteArray?) {
                     if (it.isActive) {
-                        it.resume(
-                            BleResult(
-                                true,
-                                status ?: ByteArray(0),
-                                "onReadSuccess : ${status?.toHexString()}"
-                            )
-                        )
+                        it.resume(Success(status ?: ByteArray(0)))
                     }
                 }
 
                 override fun onReadFailure(exception: BleException?) {
                     if (it.isActive) {
-                        it.resume(
-                            BleResult(
-                                false,
-                                null,
-                                "onReadFailure : ${exception?.description}"
-                            )
-                        )
+                        it.resume(exception.toFailed())
                     }
                 }
             }
@@ -240,25 +206,25 @@ class BleConnection internal constructor() {
         return callbackFlow {
             if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 if (isActive) {
-                    offer(BleResult(false, null, "未连接"))
+                    offer(Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleNotifyCallback() {
                 override fun onCharacteristicChanged(bytes: ByteArray?) {
                     if (isActive) {
-                        offer(BleResult(true, bytes ?: ByteArray(0), null))
+                        offer(Success(bytes ?: ByteArray(0)))
                     }
                 }
 
                 override fun onNotifyFailure(exception: BleException?) {
                     if (isActive) {
-                        offer(BleResult(false, null, exception?.description))
+                        offer(exception.toFailed())
                     }
                 }
 
                 override fun onNotifySuccess() {
                     if (isActive) {
-                        offer(BleResult(true, null, "success"))
+                        offer(Success(null))
                     }
                 }
 
@@ -280,25 +246,25 @@ class BleConnection internal constructor() {
         return callbackFlow {
             if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                 if (isActive) {
-                    offer(BleResult(false, null, "未连接"))
+                    offer(Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleIndicateCallback() {
                 override fun onCharacteristicChanged(bytes: ByteArray?) {
                     if (isActive) {
-                        offer(BleResult(true, bytes ?: ByteArray(0), null))
+                        offer(Success(bytes ?: ByteArray(0)))
                     }
                 }
 
                 override fun onIndicateSuccess() {
                     if (isActive) {
-                        offer(BleResult(true, null, "success"))
+                        offer(Success(null))
                     }
                 }
 
                 override fun onIndicateFailure(exception: BleException?) {
                     if (isActive) {
-                        offer(BleResult(false, null, exception?.description))
+                        offer(exception.toFailed())
                     }
                 }
 
@@ -313,8 +279,10 @@ class BleConnection internal constructor() {
 
     suspend fun setMtu(size: Int): Int {
         return suspendCancellableCoroutine {
-            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                it.resume(23)
+            if (it.isActive) {
+                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                    it.resume(23)
+                }
             }
             val callback = object : BleMtuChangedCallback() {
                 override fun onMtuChanged(mtu: Int) {
@@ -381,8 +349,10 @@ class BleConnection internal constructor() {
      */
     suspend fun readRssi(): Int {
         return suspendCancellableCoroutine {
-            if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                it.resume(-127)
+            if(it.isActive) {
+                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                    it.resume(-127)
+                }
             }
             val callback = object : BleRssiCallback() {
                 override fun onRssiFailure(exception: BleException?) {
@@ -417,5 +387,10 @@ class BleConnection internal constructor() {
         }
     }
 
+    fun BleException?.toFailed(): Failed {
+        val code = this?.code ?: -1
+        val errorMsg = this?.description ?: "Unknown error"
+        return Failed(Exception("code:$code; error:$errorMsg"))
+    }
 
 }
