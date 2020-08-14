@@ -48,7 +48,7 @@ class BleFlowScanner {
 
                 override fun onScanFailed(errorCode: Int) {
                     super.onScanFailed(errorCode)
-                    isScanningLiveData.postValue(false)
+                    isScanningLiveData.value=false
                     cancel()
                 }
 
@@ -69,15 +69,15 @@ class BleFlowScanner {
                 .build()
             try {
                 BluetoothLeScannerCompat.getScanner().startScan(filters, settings, callback)
-                isScanningLiveData.postValue(true)
+                isScanningLiveData.value=true
             } catch (e: Exception) {
                 e.printStackTrace()
-                isScanningLiveData.postValue(false)
+                isScanningLiveData.value=false
                 cancel()
             }
             awaitClose {
                 BluetoothLeScannerCompat.getScanner().stopScan(callback)
-                isScanningLiveData.postValue(false)
+                isScanningLiveData.value=false
             }
         }
     }

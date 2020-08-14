@@ -48,12 +48,12 @@ class BleScanner private constructor() {
             .setUseHardwareBatchingIfSupported(false)//如果设成true的话有的设备会很慢
             .build()
         try {
-            isScanningLiveData.postValue(true)
+            isScanningLiveData.value=true
             scanCallback = newCallback()
             BluetoothLeScannerCompat.getScanner().startScan(filters, settings, scanCallback)
         } catch (e: Exception) {
             e.printStackTrace()
-            isScanningLiveData.postValue(false)
+            isScanningLiveData.value=false
         }
     }
 
@@ -61,7 +61,7 @@ class BleScanner private constructor() {
     fun stop() {
         try {
             BluetoothLeScannerCompat.getScanner().stopScan(scanCallback)
-            isScanningLiveData.postValue(false)
+            isScanningLiveData.value=false
         } catch (e: IllegalArgumentException) {
             e.printStackTrace()
         }
@@ -71,7 +71,7 @@ class BleScanner private constructor() {
 
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
-            isScanningLiveData.postValue(false)
+            isScanningLiveData.value=false
         }
 
         override fun onBatchScanResults(results: MutableList<ScanResult>) {

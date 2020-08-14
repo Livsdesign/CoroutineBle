@@ -74,14 +74,21 @@ dependencies {
 > ```
 
 ```Kotlin
-//订阅扫描结果,1s内扫描到的结果
-val liveData:MutableLiveData<List<BleDevice>>() = BleScanner.getInstance().scanResultLiveData
-//默认以低功耗的方式开始扫描
-BleScanner.getInstance().scan()//ScanSettings.SCAN_MODE_LOW_POWER
-//or 选择其他扫描模式
-BleScanner.getInstance().scan(ScanSettings.SCAN_MODE_BALANCED)
-//结束扫描
-BleScanner.getInstance().stop()
+
+val scanner = SimpleBleScanner()
+val response = scanner.scan { scanResults ->
+     //1s内扫描到的结果,一般每隔1s回调一次
+}
+//or response.state == true
+if(response is BleResult.Success){
+    //已经开始扫描
+}else{
+    //扫描失败
+}
+//停止扫描
+scanner.stop()
+
+//也可以使用BleFlowScanner、BleScanner
 ```
 
 ### 连接
@@ -92,13 +99,11 @@ BleScanner.getInstance().stop()
 > ```
 
 ```kotlin
-val bleMgr=BleMgr.getInstance(application)
-//获取连接对象
-val connection=bleMgr.getConnection(mac)
+val connection=BleConnection()
 
 //使用LiveData订阅连接状态
-connection.data.observe(owner,Observer{ it -> 
-    when(it.state){
+connection.mStatus.observe(owner,Observer{ it -> 
+    when(it.current){
         ConnectionState.IDLE->{}//未开始连接
         ConnectionState.CONNECTING->{}//连接中
         ConnectionState.CONNECTED->{}//已连接，却已发现服务
@@ -108,8 +113,11 @@ connection.data.observe(owner,Observer{ it ->
     }
 })
 
+
 GlobalScope.launch (Dispatchers.Main){
-   val bleResult = connection.connect(mac)
+   val bleResult = connection.connect(mac){ currentStatus->
+       //这里也可以观察连接状态
+   }
     if(bleResult.state){
         Log.d("result","连接成功")
     }else{
@@ -151,16 +159,12 @@ GlobalScope.launch (Dispatchers.Main){
 
 ```Kotlin
 GlobalScope.launch (Dispatchers.Main){
-   val notifyFlow = connection.notify(uuid_service,uuid_notify)
-   notifyFlow.flowOn(Dispatchers.Main)
-    .collect{ bytes->
-        //todo something
+   val notifyResult = connection.setNotification(uuid_service,uuid_notify){ bytes->
+        //值更新时，回调
    }
     
-   val indicateFlow = connection.indicate(uuid_service,uuid_indicate)
-   indicateFlow.flowOn(Dispatchers.Main)
-   .collect{ bytes->
-        //todo something
+   val indicateResult = connection.setupIndicate(uuid_service,uuid_indicate){ bytes->
+       //值更新时，回调
    }
 }
 ```
@@ -172,5 +176,10 @@ GlobalScope.launch (Dispatchers.Main){
 connection.requestConnectParam(connectionPriority)
 //获取服务和特征
 connection.getServices()
+
+GlobalScope.launch (Dispatchers.Main){
+   val mtuSize:Int = connection.setMtu(512)
+   val currentRssi:Int = connection.readRssi()
+}
 ```
 

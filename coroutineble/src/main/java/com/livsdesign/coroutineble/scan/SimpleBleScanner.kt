@@ -40,7 +40,7 @@ class SimpleBleScanner {
 
                 override fun onScanFailed(errorCode: Int) {
                     super.onScanFailed(errorCode)
-                    isScanningLiveData.postValue(false)
+                    isScanningLiveData.value=false
                     if (it.isActive) {
                         it.resume(BleResult.Failed(Exception("Scan fail,code:$errorCode")))
                     }
@@ -57,10 +57,10 @@ class SimpleBleScanner {
             try {
                 BluetoothLeScannerCompat.getScanner()
                     .startScan(filters, createSetting(scanMode), callback)
-                isScanningLiveData.postValue(true)
+                isScanningLiveData.value=true
             } catch (e: Exception) {
                 e.printStackTrace()
-                isScanningLiveData.postValue(false)
+                isScanningLiveData.value=false
                 if (it.isActive) {
                     it.resume(BleResult.Failed(e))
                 }
@@ -72,7 +72,7 @@ class SimpleBleScanner {
         mCallback ?: return
         try {
             BluetoothLeScannerCompat.getScanner().stopScan(mCallback!!)
-            isScanningLiveData.postValue(false)
+            isScanningLiveData.value=false
         } catch (e: Exception) {
             e.printStackTrace()
         }
