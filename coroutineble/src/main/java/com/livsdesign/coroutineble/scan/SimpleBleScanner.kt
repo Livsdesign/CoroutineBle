@@ -3,7 +3,6 @@ package com.livsdesign.coroutineble.scan
 import androidx.annotation.IntRange
 import androidx.lifecycle.MutableLiveData
 import com.livsdesign.coroutineble.connect.model.BleResult
-import com.livsdesign.coroutineble.connect.model.Failed
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import no.nordicsemi.android.support.v18.scanner.*
@@ -43,7 +42,7 @@ class SimpleBleScanner {
                     super.onScanFailed(errorCode)
                     isScanningLiveData.postValue(false)
                     if (it.isActive) {
-                        it.resume(Failed(Exception("Scan fail,code:$errorCode")))
+                        it.resume(BleResult.Failed(Exception("Scan fail,code:$errorCode")))
                     }
                 }
 
@@ -63,7 +62,7 @@ class SimpleBleScanner {
                 e.printStackTrace()
                 isScanningLiveData.postValue(false)
                 if (it.isActive) {
-                    it.resume(Failed(e))
+                    it.resume(BleResult.Failed(e))
                 }
             }
         }
