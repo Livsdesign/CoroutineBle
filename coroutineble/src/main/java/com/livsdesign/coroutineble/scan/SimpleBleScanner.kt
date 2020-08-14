@@ -2,22 +2,15 @@ package com.livsdesign.coroutineble.scan
 
 import androidx.annotation.IntRange
 import androidx.lifecycle.MutableLiveData
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.ProducerScope
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.isActive
+import com.livsdesign.coroutineble.connect.model.BleResult
+import com.livsdesign.coroutineble.connect.model.Failed
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 import no.nordicsemi.android.support.v18.scanner.*
 
-/**
- * 使用FLow实现，实验性的Flow，使用方法随时会变
- * 标注 @ExperimentalCoroutinesApi
- * 不推荐使用
- */
-@ExperimentalCoroutinesApi
-class BleFlowScanner {
+typealias OnBatchScanCallback = (results: MutableList<ScanResult>) -> Unit
+
+class SimpleBleScanner {
 
     val isScanningLiveData = MutableLiveData<Boolean>()
 
@@ -36,53 +29,66 @@ class BleFlowScanner {
      */
     private val defaultScanMode = android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_POWER
     private val defaultFilters = emptyList<ScanFilter>()
-    private var producerScope: ProducerScope<MutableList<ScanResult>>? = null
+    private var mCallback: ScanCallback? = null
 
-    fun scan(
+    suspend fun scan(
         @IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode,
-        filters: List<ScanFilter> = defaultFilters
-    ): Flow<List<ScanResult>> {
-        return callbackFlow {
-            producerScope = this
+        filters: List<ScanFilter> = defaultFilters,
+        batchScanCallback: OnBatchScanCallback
+    ): BleResult {
+        return suspendCancellableCoroutine {
             val callback = object : ScanCallback() {
 
                 override fun onScanFailed(errorCode: Int) {
                     super.onScanFailed(errorCode)
                     isScanningLiveData.postValue(false)
-                    cancel()
+                    if (it.isActive) {
+                        it.resume(Failed(Exception("Scan fail,code:$errorCode")))
+                    }
                 }
 
                 override fun onBatchScanResults(results: MutableList<ScanResult>) {
                     super.onBatchScanResults(results)
                     if (results.isNotEmpty()) {
-                        offer(results)
+                        batchScanCallback.invoke(results)
                     }
                 }
             }
-            if (!isActive) return@callbackFlow
-
-            val settings = ScanSettings.Builder()
-                .setLegacy(false)
-                .setScanMode(scanMode)
-                .setReportDelay(1000)//buffer
-                .setUseHardwareBatchingIfSupported(false)//如果设成true的话有的设备会很慢
-                .build()
+            mCallback = callback
             try {
-                BluetoothLeScannerCompat.getScanner().startScan(filters, settings, callback)
+                BluetoothLeScannerCompat.getScanner()
+                    .startScan(filters, createSetting(scanMode), callback)
                 isScanningLiveData.postValue(true)
             } catch (e: Exception) {
                 e.printStackTrace()
                 isScanningLiveData.postValue(false)
-                cancel()
-            }
-            awaitClose {
-                BluetoothLeScannerCompat.getScanner().stopScan(callback)
-                isScanningLiveData.postValue(false)
+                if (it.isActive) {
+                    it.resume(Failed(e))
+                }
             }
         }
     }
 
-    fun cancel() {
-        producerScope?.cancel()
+    fun stop() {
+        mCallback ?: return
+        try {
+            BluetoothLeScannerCompat.getScanner().stopScan(mCallback!!)
+            isScanningLiveData.postValue(false)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+
+    private fun createSetting(
+        @IntRange(from = -1, to = 2)
+        scanMode: Int = defaultScanMode
+    ): ScanSettings {
+        return ScanSettings.Builder()
+            .setLegacy(false)
+            .setScanMode(scanMode)
+            .setReportDelay(1000)//buffer
+            .setUseHardwareBatchingIfSupported(false)//如果设成true的话有的设备会很慢
+            .build()
+    }
+
 }

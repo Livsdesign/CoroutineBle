@@ -5,8 +5,10 @@ import androidx.lifecycle.MutableLiveData
 import com.livsdesign.coroutineble.SingleLiveEvent
 import no.nordicsemi.android.support.v18.scanner.*
 
+/**
+ * 使用LiveData实现
+ */
 class BleScanner private constructor() {
-
 
     val isScanningLiveData = MutableLiveData<Boolean>().apply {
         value = false
@@ -82,19 +84,4 @@ class BleScanner private constructor() {
             }
         }
     }
-
-    companion object {
-
-        @Volatile
-        private var instance: BleScanner? = null
-
-        fun getInstance(): BleScanner {
-            return instance ?: synchronized(this) {
-                return instance ?: BleScanner().also { instance = it }
-            }
-        }
-
-
-    }
-
 }

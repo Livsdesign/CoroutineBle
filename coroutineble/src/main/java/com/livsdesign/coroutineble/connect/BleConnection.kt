@@ -2,20 +2,14 @@ package com.livsdesign.coroutineble.connect
 
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattService
-import android.util.Log
 import androidx.annotation.IntRange
 import com.clj.fastble.BleManager
 import com.clj.fastble.callback.*
 import com.clj.fastble.data.BleDevice
 import com.clj.fastble.exception.BleException
 import com.livsdesign.coroutineble.connect.model.*
-import com.livsdesign.coroutineble.toHexString
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlin.coroutines.resume
-import kotlin.properties.Delegates
 
 typealias ConnectionStepChanged = (newStatus: ConnectionStep) -> Unit
 typealias OnReceived = (received: ByteArray) -> Unit
@@ -26,29 +20,15 @@ class BleConnection internal constructor() {
      * LiveData是很香，但需要关联LifecycleOwner，如果没有订阅也不会执行
      */
     val mStatus = ConnectionStatus()
-
-    private var internalStatus by Delegates.observable(ConnectionStep.IDLE,
-        { _, _, newValue ->
-            mStatus.current = newValue
-            onStepChanged?.invoke(newValue)
-        })
-
-    private var onStepChanged: ConnectionStepChanged? = null
-
-
-    fun setOnStatusChangedCallback(onChanged: ConnectionStepChanged?) {
-        onStepChanged = onChanged
-    }
-
-
     private var mDevice: BleDevice? = null
     private var mGatt: BluetoothGatt? = null
 
-    suspend fun connect(mac: String): BleResult {
+    suspend fun connect(mac: String, onChanged: ConnectionStepChanged): BleResult {
         return suspendCancellableCoroutine {
             val callback = object : BleGattCallback() {
                 override fun onStartConnect() {
-                    internalStatus = ConnectionStep.CONNECTING
+                    mStatus.current = ConnectionStep.CONNECTING
+                    onChanged.invoke(ConnectionStep.CONNECTING)
                     mGatt = null
                 }
 
@@ -61,11 +41,13 @@ class BleConnection internal constructor() {
                     mGatt = null
                     gatt?.close()
                     mDevice = device
-                    internalStatus = if (isActiveDisConnected) {
+                    val step = if (isActiveDisConnected) {
                         ConnectionStep.DISCONNECTED
                     } else {
                         ConnectionStep.LOST
                     }
+                    mStatus.current = step
+                    onChanged.invoke(step)
                 }
 
                 override fun onConnectSuccess(
@@ -75,7 +57,8 @@ class BleConnection internal constructor() {
                 ) {
                     mGatt = gatt
                     mDevice = bleDevice
-                    internalStatus = ConnectionStep.CONNECTED
+                    mStatus.current = ConnectionStep.CONNECTED
+                    onChanged.invoke(ConnectionStep.CONNECTED)
                     if (it.isActive) {
                         it.resume(Success(null))
                     }
@@ -83,7 +66,8 @@ class BleConnection internal constructor() {
 
                 override fun onConnectFail(bleDevice: BleDevice?, exception: BleException?) {
                     mGatt = null
-                    internalStatus = ConnectionStep.FAILED
+                    mStatus.current = ConnectionStep.FAILED
+                    onChanged.invoke(ConnectionStep.FAILED)
                     mDevice = bleDevice
                     if (it.isActive) {
                         it.resume(exception.toFailed())
@@ -105,7 +89,8 @@ class BleConnection internal constructor() {
                     //这个会导致其他对象对此
                     BleManager.getInstance().getBleBluetooth(connectedDevice)
                         .addConnectGattCallback(callback)
-                    internalStatus = ConnectionStep.CONNECTED
+                    mStatus.current = ConnectionStep.CONNECTED
+                    onChanged.invoke(ConnectionStep.CONNECTED)
                     it.resume(Success(null))
                 }
             }
@@ -116,7 +101,7 @@ class BleConnection internal constructor() {
     suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
         return suspendCancellableCoroutine {
             if (it.isActive) {
-                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                     it.resume(Failed(IllegalArgumentException("未连接")))
                 }
             }
@@ -146,7 +131,7 @@ class BleConnection internal constructor() {
     ): BleResult {
         return suspendCancellableCoroutine {
             if (it.isActive) {
-                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                     it.resume(Failed(IllegalArgumentException("未连接")))
                 }
             }
@@ -173,7 +158,7 @@ class BleConnection internal constructor() {
     suspend fun read(uuid_service: String, uuid_read: String): BleResult {
         return suspendCancellableCoroutine {
             if (it.isActive) {
-                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                     it.resume(Failed(IllegalArgumentException("未连接")))
                 }
             }
@@ -206,7 +191,7 @@ class BleConnection internal constructor() {
     ): BleResult {
         return suspendCancellableCoroutine {
             if (it.isActive) {
-                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
                     it.resume(Failed(IllegalArgumentException("未连接")))
                 }
             }
@@ -216,9 +201,11 @@ class BleConnection internal constructor() {
                         onReceive.invoke(bytes)
                     }
                 }
+
                 override fun onNotifyFailure(exception: BleException?) {
                     it.takeIf { it.isActive }?.apply { it.resume(exception.toFailed()) }
                 }
+
                 override fun onNotifySuccess() {
                     it.takeIf { it.isActive }?.apply { it.resume(Success(null)) }
                 }
@@ -236,8 +223,174 @@ class BleConnection internal constructor() {
     }
 
 
+    suspend fun setupIndicate(
+        uuid_service: String,
+        uuid_notify: String,
+        useCharacteristicDescriptor: Boolean = true,
+        onReceive: OnReceived
+    ): BleResult {
+        return suspendCancellableCoroutine {
+            if (it.isActive) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                    it.resume(Failed(IllegalArgumentException("未连接")))
+                }
+            }
+            val callback = object : BleIndicateCallback() {
+                override fun onCharacteristicChanged(data: ByteArray?) {
+                    data?.let { bytes ->
+                        onReceive.invoke(bytes)
+                    }
+                }
+
+                override fun onIndicateFailure(exception: BleException?) {
+                    it.takeIf { it.isActive }?.apply { it.resume(exception.toFailed()) }
+                }
+
+                override fun onIndicateSuccess() {
+                    it.takeIf { it.isActive }?.apply { it.resume(Success(null)) }
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance().indicate(
+                    mDevice,
+                    uuid_service,
+                    uuid_notify,
+                    useCharacteristicDescriptor,
+                    callback
+                )
+            }
+        }
+    }
+
+
+    suspend fun setMtu(size: Int): Int {
+        return suspendCancellableCoroutine {
+            if (it.isActive) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                    it.resume(23)
+                }
+            }
+            val callback = object : BleMtuChangedCallback() {
+                override fun onMtuChanged(mtu: Int) {
+                    if (it.isActive) {
+                        it.resume(mtu)
+                    }
+                }
+
+                override fun onSetMTUFailure(exception: BleException?) {
+                    if (it.isActive) {
+                        it.resume(23)
+                    }
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance().setMtu(mDevice, size, callback)
+            }
+        }
+    }
+
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
+
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
+    /**
+     * desc 体现蓝牙操作的响应速度
+     *
+     * @param connectionPriority Request a specific connection priority. Must be one of
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
+     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
+     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
+     */
+    fun requestConnectParam(@IntRange(from = 0, to = 2) connectionPriority: Int) {
+        BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
+    }
+
+    /**
+     * 读一次回一次
+     */
+    suspend fun readRssi(): Int {
+        return suspendCancellableCoroutine {
+            if (it.isActive) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                    it.resume(-127)
+                }
+            }
+            val callback = object : BleRssiCallback() {
+                override fun onRssiFailure(exception: BleException?) {
+                    if (it.isActive) {
+                        it.resume(-127)
+                    }
+                }
+
+                override fun onRssiSuccess(rssi: Int) {
+                    if (it.isActive) {
+                        it.resume(rssi)
+                    }
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance().readRssi(mDevice, callback)
+            }
+        }
+    }
+
+    fun disconnect() {
+        mDevice?.run {
+            BleManager.getInstance().disconnect(this)
+        }
+    }
+
+    fun getServices(): List<BluetoothGattService> {
+        return if (mDevice != null && mStatus.current == ConnectionStep.CONNECTED) {
+            BleManager.getInstance().getBluetoothGattServices(mDevice)
+        } else {
+            emptyList()
+        }
+    }
+
+    fun BleException?.toFailed(): Failed {
+        val code = this?.code ?: -1
+        val errorMsg = this?.description ?: "Unknown error"
+        return Failed(Exception("code:$code; error:$errorMsg"))
+    }
+
+    /**
+     * 截至与2020年8月
+     * 1. Flow仍是一个实验性的类，使用方法在更新后，接口更改的可能性很大，
+     * 2. 且在使用FLow后，需要新建立launch才可以继续使用协程或普通方法，否则后面代码将不执行
+     * 3. 需要标注@ExperimentalCoroutinesApi，否则android studio会警告，如果使用Flow需要大量标注此注解，很烦。
+     * 以上几点原因，暂时放弃setupNotification（）和setupIndicate（）
+     * 请使用以下两个方法
+     * @see setNotification
+     */
+
     //某些设备如果不按照SIG规范，writeDescriptor会导致回掉异常,需要设置useCharacteristicDescriptor=false
-    @ExperimentalCoroutinesApi
+    /*@ExperimentalCoroutinesApi
     fun setupNotification(
         uuid_service: String,
         uuid_notify: String,
@@ -316,122 +469,6 @@ class BleConnection internal constructor() {
             }
             awaitClose { Log.e("BleConnection", "indicate callbackFlow awaitClose") }
         }
-    }
-
-    suspend fun setMtu(size: Int): Int {
-        return suspendCancellableCoroutine {
-            if (it.isActive) {
-                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                    it.resume(23)
-                }
-            }
-            val callback = object : BleMtuChangedCallback() {
-                override fun onMtuChanged(mtu: Int) {
-                    if (it.isActive) {
-                        it.resume(mtu)
-                    }
-                }
-
-                override fun onSetMTUFailure(exception: BleException?) {
-                    if (it.isActive) {
-                        it.resume(23)
-                    }
-                }
-            }
-            if (it.isActive) {
-                BleManager.getInstance().setMtu(mDevice, size, callback)
-            }
-        }
-    }
-
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-    fun requestConnectParam(@IntRange(from = 0, to = 2) connectionPriority: Int) {
-        BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
-    }
-
-    /**
-     * 读一次回一次
-     */
-    suspend fun readRssi(): Int {
-        return suspendCancellableCoroutine {
-            if (it.isActive) {
-                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
-                    it.resume(-127)
-                }
-            }
-            val callback = object : BleRssiCallback() {
-                override fun onRssiFailure(exception: BleException?) {
-                    if (it.isActive) {
-                        it.resume(-127)
-                    }
-                }
-
-                override fun onRssiSuccess(rssi: Int) {
-                    if (it.isActive) {
-                        it.resume(rssi)
-                    }
-                }
-            }
-            if (it.isActive) {
-                BleManager.getInstance().readRssi(mDevice, callback)
-            }
-        }
-    }
-
-    fun disconnect() {
-        mDevice?.run {
-            BleManager.getInstance().disconnect(this)
-        }
-    }
-
-    fun getServices(): List<BluetoothGattService> {
-        return if (mDevice != null && internalStatus == ConnectionStep.CONNECTED) {
-            BleManager.getInstance().getBluetoothGattServices(mDevice)
-        } else {
-            emptyList()
-        }
-    }
-
-    fun BleException?.toFailed(): Failed {
-        val code = this?.code ?: -1
-        val errorMsg = this?.description ?: "Unknown error"
-        return Failed(Exception("code:$code; error:$errorMsg"))
-    }
+    }*/
 
 }
