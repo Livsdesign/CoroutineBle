@@ -18,8 +18,8 @@ import kotlin.coroutines.resume
 import kotlin.properties.Delegates
 
 typealias ConnectionStepChanged = (newStatus: ConnectionStep) -> Unit
+typealias OnReceived = (received: ByteArray) -> Unit
 
-@ExperimentalCoroutinesApi
 class BleConnection internal constructor() {
 
     /**
@@ -128,7 +128,7 @@ class BleConnection internal constructor() {
                 }
 
                 override fun onWriteFailure(exception: BleException?) {
-                    if(it.isActive) {
+                    if (it.isActive) {
                         it.resume(exception.toFailed())
                     }
                 }
@@ -158,7 +158,7 @@ class BleConnection internal constructor() {
                 }
 
                 override fun onWriteFailure(exception: BleException?) {
-                    if(it.isActive) {
+                    if (it.isActive) {
                         it.resume(exception.toFailed())
                     }
                 }
@@ -197,7 +197,47 @@ class BleConnection internal constructor() {
         }
     }
 
+    //疑问：当return后callback还有效吗
+    suspend fun setNotification(
+        uuid_service: String,
+        uuid_notify: String,
+        useCharacteristicDescriptor: Boolean = true,
+        onReceive: OnReceived
+    ): BleResult {
+        return suspendCancellableCoroutine {
+            if (it.isActive) {
+                if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
+                    it.resume(Failed(IllegalArgumentException("未连接")))
+                }
+            }
+            val callback = object : BleNotifyCallback() {
+                override fun onCharacteristicChanged(data: ByteArray?) {
+                    data?.let { bytes ->
+                        onReceive.invoke(bytes)
+                    }
+                }
+                override fun onNotifyFailure(exception: BleException?) {
+                    it.takeIf { it.isActive }?.apply { it.resume(exception.toFailed()) }
+                }
+                override fun onNotifySuccess() {
+                    it.takeIf { it.isActive }?.apply { it.resume(Success(null)) }
+                }
+            }
+            if (it.isActive) {
+                BleManager.getInstance().notify(
+                    mDevice,
+                    uuid_service,
+                    uuid_notify,
+                    useCharacteristicDescriptor,
+                    callback
+                )
+            }
+        }
+    }
+
+
     //某些设备如果不按照SIG规范，writeDescriptor会导致回掉异常,需要设置useCharacteristicDescriptor=false
+    @ExperimentalCoroutinesApi
     fun setupNotification(
         uuid_service: String,
         uuid_notify: String,
@@ -242,6 +282,7 @@ class BleConnection internal constructor() {
         }
     }
 
+    @ExperimentalCoroutinesApi
     fun setupIndicate(uuid_service: String, uuid_indicate: String): Flow<BleResult> {
         return callbackFlow {
             if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
@@ -349,7 +390,7 @@ class BleConnection internal constructor() {
      */
     suspend fun readRssi(): Int {
         return suspendCancellableCoroutine {
-            if(it.isActive) {
+            if (it.isActive) {
                 if (mDevice == null || internalStatus != ConnectionStep.CONNECTED) {
                     it.resume(-127)
                 }
