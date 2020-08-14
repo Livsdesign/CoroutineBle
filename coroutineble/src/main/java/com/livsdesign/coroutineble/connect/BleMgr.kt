@@ -7,7 +7,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 /**
  * todo 连接的配置
  */
-@ExperimentalCoroutinesApi
 class BleMgr {
 
     private var app: Application? = null
