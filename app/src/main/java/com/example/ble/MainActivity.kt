@@ -7,7 +7,7 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import com.livsdesign.coroutineble.connect.BleConnection
 import com.livsdesign.coroutineble.connect.BleMgr
-import com.livsdesign.coroutineble.connect.model.Failed
+import com.livsdesign.coroutineble.connect.model.BleResult
 import com.livsdesign.coroutineble.env.EnvViewModel
 import com.livsdesign.coroutineble.env.EnvViewModelFactory
 import com.livsdesign.coroutineble.toHexString
@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.envLiveData.observe(this, Observer {
             if (it.ready()) {
                 val bleMgr = BleMgr.getInstance()
-                bleMgr.setup(application)
+//                bleMgr.setup(application)
                 val connection = bleMgr.createConnection()
                 test(connection)
             }
@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity() {
                 ) {
                     Log.e("??", it.toHexString())
                 }
-                if (response is Failed) {
+                if (response is BleResult.Failed) {
                     Log.e("??", response.exception.message.toString())
                 } else {
                     Log.e("??", "success")

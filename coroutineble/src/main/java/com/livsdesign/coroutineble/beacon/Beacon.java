@@ -1,6 +1,8 @@
 package com.livsdesign.coroutineble.beacon;
 
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.LinkedList;
 import java.util.List;
 
@@ -21,9 +23,9 @@ public class Beacon {
         }
     }
 
+    @NotNull
     @Override
     public String toString() {
-        // TODO Auto-generated method stub
         StringBuilder sb = new StringBuilder();
 
         sb.append(String.format("preParse: %s\npostParse:\n", ByteUtils.byteToString(mBytes)));

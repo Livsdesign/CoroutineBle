@@ -1,6 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.livsdesign.coroutineble" >
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.livsdesign.coroutineble">
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+
+    <application
+        android:allowBackup="true"
+        android:supportsRtl="true">
+        <provider
+            android:name="com.livsdesign.coroutineble.CoroutineBleProvider"
+            android:authorities="${applicationId}.CoroutineBleProvider"
+            android:exported="false"
+            android:multiprocess="true" />
+
+    </application>
+
+
 </manifest>

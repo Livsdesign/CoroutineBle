@@ -14,7 +14,7 @@ import kotlin.coroutines.resume
 typealias ConnectionStepChanged = (newStatus: ConnectionStep) -> Unit
 typealias OnReceived = (received: ByteArray) -> Unit
 
-class BleConnection internal constructor() {
+class BleConnection {
 
     /**
      * LiveData是很香，但需要关联LifecycleOwner，如果没有订阅也不会执行
@@ -377,6 +377,16 @@ class BleConnection internal constructor() {
         val code = this?.code ?: -1
         val errorMsg = this?.description ?: "Unknown error"
         return BleResult.Failed(Exception("code:$code; error:$errorMsg"))
+    }
+
+    companion object {
+
+        fun getAllConnectedDevices(): List<String> {
+            return BleManager.getInstance().allConnectedDevice.map {
+                it.mac
+            }
+        }
+
     }
 
     /**
