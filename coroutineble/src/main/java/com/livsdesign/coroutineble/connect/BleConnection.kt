@@ -21,7 +21,6 @@ class BleConnection {
      */
     val mStatus = ConnectionStatus()
     private var mDevice: BleDevice? = null
-    private var mGatt: BluetoothGatt? = null
 
     suspend fun connect(mac: String, onChanged: ConnectionStepChanged): BleResult {
         return suspendCancellableCoroutine {
@@ -29,7 +28,6 @@ class BleConnection {
                 override fun onStartConnect() {
                     mStatus.current = ConnectionStep.CONNECTING
                     onChanged.invoke(ConnectionStep.CONNECTING)
-                    mGatt = null
                 }
 
                 override fun onDisConnected(
@@ -38,9 +36,8 @@ class BleConnection {
                     gatt: BluetoothGatt?,
                     status: Int
                 ) {
-                    mGatt = null
                     gatt?.close()
-                    mDevice = device
+                    mDevice = null
                     val step = if (isActiveDisConnected) {
                         ConnectionStep.DISCONNECTED
                     } else {
@@ -55,7 +52,6 @@ class BleConnection {
                     gatt: BluetoothGatt?,
                     status: Int
                 ) {
-                    mGatt = gatt
                     mDevice = bleDevice
                     mStatus.current = ConnectionStep.CONNECTED
                     onChanged.invoke(ConnectionStep.CONNECTED)
@@ -65,10 +61,9 @@ class BleConnection {
                 }
 
                 override fun onConnectFail(bleDevice: BleDevice?, exception: BleException?) {
-                    mGatt = null
                     mStatus.current = ConnectionStep.FAILED
                     onChanged.invoke(ConnectionStep.FAILED)
-                    mDevice = bleDevice
+                    mDevice = null
                     if (it.isActive) {
                         it.resume(exception.toFailed())
                     }
@@ -222,7 +217,6 @@ class BleConnection {
         }
     }
 
-
     suspend fun setupIndicate(
         uuid_service: String,
         uuid_notify: String,
@@ -261,7 +255,6 @@ class BleConnection {
             }
         }
     }
-
 
     suspend fun setMtu(size: Int): Int {
         return suspendCancellableCoroutine {
@@ -327,7 +320,9 @@ class BleConnection {
      * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
      */
     fun requestConnectParam(@IntRange(from = 0, to = 2) connectionPriority: Int) {
-        BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
+        if (mDevice != null && mStatus.current == ConnectionStep.CONNECTED) {
+            BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
+        }
     }
 
     /**
