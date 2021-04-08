@@ -18,7 +18,6 @@ import androidx.lifecycle.ViewModelProvider
 import com.livsdesign.coroutineble.R
 import kotlinx.android.synthetic.main.fragment_ble_env.*
 
-
 class BleEnvFragment : Fragment() {
 
     private val envViewModel: EnvViewModel by lazy {
@@ -26,13 +25,26 @@ class BleEnvFragment : Fragment() {
             EnvViewModel::class.java
         )
     }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_ble_env, container, false)
+    }
+
+    private val activated by lazy {
+        getString(R.string.btn_activated)
+    }
+    private val enable by lazy {
+        getString(R.string.btn_enable)
+    }
+    private val authorize by lazy {
+        getString(R.string.btn_allow)
+    }
+
+    private val authorized by lazy {
+        getString(R.string.btn_authorized)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -50,28 +62,27 @@ class BleEnvFragment : Fragment() {
             } else {
                 if (it.bluetooth) {
                     bluetoothBtn.isEnabled = false
-                    bluetoothBtn.text = "已开启"
+                    bluetoothBtn.text = activated
                 } else {
                     bluetoothBtn.isEnabled = true
-                    bluetoothBtn.text = "去开启"
+                    bluetoothBtn.text = enable
                 }
                 if (it.location) {
                     locationBtn.isEnabled = false
-                    locationBtn.text = "已开启"
+                    locationBtn.text = activated
                 } else {
                     locationBtn.isEnabled = true
-                    locationBtn.text = "去开启"
+                    locationBtn.text = enable
                 }
                 if (it.locationPermission) {
                     permissionBtn.isEnabled = false
-                    permissionBtn.text = "已授权"
+                    permissionBtn.text = authorized
                 } else {
                     permissionBtn.isEnabled = true
-                    permissionBtn.text = "去授权"
+                    permissionBtn.text = authorize
                 }
             }
         })
-
         setupView()
     }
 

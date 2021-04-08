@@ -1,4 +1,4 @@
-package com.livsdesign.coroutineble.connect.model
+package com.livsdesign.coroutineble.model
 
 import androidx.lifecycle.LiveData
 

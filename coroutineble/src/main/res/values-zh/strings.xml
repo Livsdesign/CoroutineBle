@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_authorization">授权</string>
+    <string name="hint_authorization">为了APP的正常使用，APP需要使用到以下权限和功能，请按照提示开启对应功能并授权APP使用以下权限</string>
+    <string name="params_bt">蓝牙</string>
+    <string name="hint_bt">APP需要使用蓝牙功能才能发现蓝牙设备和实现连接控制。</string>
+    <string name="btn_enable">去开启</string>
+    <string name="btn_activated">已开启</string>
+    <string name="btn_authorized">已授权</string>
+    <string name="params_func_location">位置信息功能</string>
+    <string name="hint_func_location">APP需要使用位置信息功能精准地测量蓝牙设备的信号强度，否则无法发现设备</string>
+    <string name="params_permission_location">位置信息权限</string>
+    <string name="hint_permission_location">APP需要用授权方可使用位置信息功能</string>
+    <string name="btn_allow">去授权</string>
+    <string name="cancel">取消</string>
+</resources>

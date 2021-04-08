@@ -1,13 +1,18 @@
 package com.livsdesign.coroutineble.connect
 
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattService
+import android.bluetooth.*
+import android.content.Context
+import android.os.Build
 import androidx.annotation.IntRange
+import androidx.annotation.RequiresApi
 import com.clj.fastble.BleManager
 import com.clj.fastble.callback.*
 import com.clj.fastble.data.BleDevice
 import com.clj.fastble.exception.BleException
-import com.livsdesign.coroutineble.connect.model.*
+import com.livsdesign.coroutineble.model.BaseResult
+import com.livsdesign.coroutineble.model.ConnectionStatus
+import com.livsdesign.coroutineble.model.ConnectionStep
+import com.livsdesign.coroutineble.model.PhyInfo
 import kotlinx.coroutines.*
 import kotlin.coroutines.resume
 
@@ -22,7 +27,7 @@ class BleConnection {
     val mStatus = ConnectionStatus()
     private var mDevice: BleDevice? = null
 
-    suspend fun connect(mac: String, onChanged: ConnectionStepChanged): BleResult {
+    suspend fun connect(mac: String, onChanged: ConnectionStepChanged): BaseResult<String> {
         return suspendCancellableCoroutine {
             val callback = object : BleGattCallback() {
                 override fun onStartConnect() {
@@ -56,7 +61,7 @@ class BleConnection {
                     mStatus.current = ConnectionStep.CONNECTED
                     onChanged.invoke(ConnectionStep.CONNECTED)
                     if (it.isActive) {
-                        it.resume(BleResult.Success(null))
+                        it.resume(BaseResult.Success(mac))
                     }
                 }
 
@@ -86,24 +91,28 @@ class BleConnection {
                         .addConnectGattCallback(callback)
                     mStatus.current = ConnectionStep.CONNECTED
                     onChanged.invoke(ConnectionStep.CONNECTED)
-                    it.resume(BleResult.Success(null))
+                    it.resume(BaseResult.Success(mac))
                 }
             }
         }
     }
 
 
-    suspend fun write(uuid_service: String, uuid_write: String, bytes: ByteArray): BleResult {
+    suspend fun write(
+        uuid_service: String,
+        uuid_write: String,
+        bytes: ByteArray
+    ): BaseResult<ByteArray> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(BleResult.Failed(IllegalArgumentException("未连接")))
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleWriteCallback() {
                 override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
                     if (it.isActive) {
-                        it.resume(BleResult.Success(justWrite ?: ByteArray(0)))
+                        it.resume(BaseResult.Success(justWrite ?: ByteArray(0)))
                     }
                 }
 
@@ -123,17 +132,17 @@ class BleConnection {
         uuid_service: String,
         uuid_write: String,
         bytes: ByteArray
-    ): BleResult {
+    ): BaseResult<ByteArray> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(BleResult.Failed(IllegalArgumentException("未连接")))
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleWriteCallback() {
                 override fun onWriteSuccess(current: Int, total: Int, justWrite: ByteArray?) {
                     if (it.isActive && current == total) {
-                        it.resume(BleResult.Success(justWrite ?: ByteArray(0)))
+                        it.resume(BaseResult.Success(justWrite ?: ByteArray(0)))
                     }
                 }
 
@@ -150,18 +159,18 @@ class BleConnection {
         }
     }
 
-    suspend fun read(uuid_service: String, uuid_read: String): BleResult {
+    suspend fun read(uuid_service: String, uuid_read: String): BaseResult<ByteArray> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(BleResult.Failed(IllegalArgumentException("未连接")))
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleReadCallback() {
 
                 override fun onReadSuccess(status: ByteArray?) {
                     if (it.isActive) {
-                        it.resume(BleResult.Success(status ?: ByteArray(0)))
+                        it.resume(BaseResult.Success(status ?: ByteArray(0)))
                     }
                 }
 
@@ -183,11 +192,11 @@ class BleConnection {
         uuid_notify: String,
         useCharacteristicDescriptor: Boolean = true,
         onReceive: OnReceived
-    ): BleResult {
+    ): BaseResult<Boolean> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(BleResult.Failed(IllegalArgumentException("未连接")))
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleNotifyCallback() {
@@ -202,7 +211,7 @@ class BleConnection {
                 }
 
                 override fun onNotifySuccess() {
-                    it.takeIf { it.isActive }?.apply { it.resume(BleResult.Success(null)) }
+                    it.takeIf { it.isActive }?.apply { it.resume(BaseResult.Success(true)) }
                 }
             }
             if (it.isActive) {
@@ -222,11 +231,11 @@ class BleConnection {
         uuid_notify: String,
         useCharacteristicDescriptor: Boolean = true,
         onReceive: OnReceived
-    ): BleResult {
+    ): BaseResult<Boolean> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(BleResult.Failed(IllegalArgumentException("未连接")))
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleIndicateCallback() {
@@ -241,7 +250,7 @@ class BleConnection {
                 }
 
                 override fun onIndicateSuccess() {
-                    it.takeIf { it.isActive }?.apply { it.resume(BleResult.Success(null)) }
+                    it.takeIf { it.isActive }?.apply { it.resume(BaseResult.Success(true)) }
                 }
             }
             if (it.isActive) {
@@ -256,23 +265,23 @@ class BleConnection {
         }
     }
 
-    suspend fun setMtu(size: Int): Int {
+    suspend fun setMtu(size: Int): BaseResult<Int> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(23)
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleMtuChangedCallback() {
                 override fun onMtuChanged(mtu: Int) {
                     if (it.isActive) {
-                        it.resume(mtu)
+                        it.resume(BaseResult.Success(mtu))
                     }
                 }
 
                 override fun onSetMTUFailure(exception: BleException?) {
                     if (it.isActive) {
-                        it.resume(23)
+                        it.resume(exception.toFailed())
                     }
                 }
             }
@@ -289,62 +298,64 @@ class BleConnection {
      *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
      *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
      *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
+     *                           High:(11.25~15ms,0,20s)
+     *                           Balanced:(30~50ms,0,20s)
+     *                           High:(100~125ms,2,20s)
      * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
      */
-
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-    /**
-     * desc 体现蓝牙操作的响应速度
-     *
-     * @param connectionPriority Request a specific connection priority. Must be one of
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED},
-     *                           {@link BluetoothGatt#CONNECTION_PRIORITY_HIGH}
-     *                           or {@link BluetoothGatt#CONNECTION_PRIORITY_LOW_POWER}.
-     * default：{@link BluetoothGatt#CONNECTION_PRIORITY_BALANCED}
-     */
-    fun requestConnectParam(@IntRange(from = 0, to = 2) connectionPriority: Int) {
-        if (mDevice != null && mStatus.current == ConnectionStep.CONNECTED) {
+    fun requestConnectParam(@IntRange(from = 0, to = 2) connectionPriority: Int): Boolean {
+        return if (mDevice != null && mStatus.current == ConnectionStep.CONNECTED) {
             BleManager.getInstance().requestConnectionPriority(mDevice, connectionPriority)
+        } else {
+            false
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun readPhy(context: Context): BaseResult<PhyInfo> {
+        return suspendCancellableCoroutine {
+            if (it.isActive) {
+                if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
+                }
+            }
+            BleManager.getInstance().bluetoothManager.openGattServer(context,
+                object : BluetoothGattServerCallback() {
+                    override fun onPhyRead(d: BluetoothDevice?, tx: Int, rx: Int, status: Int) {
+                        super.onPhyRead(d, tx, rx, status)
+                        val info = PhyInfo(d?.address ?: mDevice?.mac ?: "", tx, rx, status)
+                        if (it.isActive) {
+                            it.resume(BaseResult.Success(info))
+                        }
+                    }
+                })
+            if (it.isActive) {
+                BleManager.getInstance().getBluetoothGatt(mDevice).readPhy()
+            }
+        }
+    }
+
 
     /**
      * 读一次回一次
      */
-    suspend fun readRssi(): Int {
+    suspend fun readRssi(): BaseResult<Int> {
         return suspendCancellableCoroutine {
             if (it.isActive) {
                 if (mDevice == null || mStatus.current != ConnectionStep.CONNECTED) {
-                    it.resume(-127)
+                    it.resume(BaseResult.Failed(IllegalArgumentException("未连接")))
                 }
             }
             val callback = object : BleRssiCallback() {
                 override fun onRssiFailure(exception: BleException?) {
                     if (it.isActive) {
-                        it.resume(-127)
+                        it.resume(exception.toFailed())
                     }
                 }
 
                 override fun onRssiSuccess(rssi: Int) {
                     if (it.isActive) {
-                        it.resume(rssi)
+                        it.resume(BaseResult.Success(rssi))
                     }
                 }
             }
@@ -368,10 +379,10 @@ class BleConnection {
         }
     }
 
-    fun BleException?.toFailed(): BleResult.Failed {
+    fun <T> BleException?.toFailed(): BaseResult.Failed<T> {
         val code = this?.code ?: -1
         val errorMsg = this?.description ?: "Unknown error"
-        return BleResult.Failed(Exception("code:$code; error:$errorMsg"))
+        return BaseResult.Failed(Exception("code:$code; error:$errorMsg"))
     }
 
     companion object {

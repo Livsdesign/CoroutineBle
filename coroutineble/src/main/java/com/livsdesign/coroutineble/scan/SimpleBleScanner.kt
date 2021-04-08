@@ -2,7 +2,7 @@ package com.livsdesign.coroutineble.scan
 
 import androidx.annotation.IntRange
 import androidx.lifecycle.MutableLiveData
-import com.livsdesign.coroutineble.connect.model.BleResult
+import com.livsdesign.coroutineble.model.BaseResult
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import no.nordicsemi.android.support.v18.scanner.*
@@ -34,7 +34,7 @@ class SimpleBleScanner {
         @IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode,
         filters: List<ScanFilter> = defaultFilters,
         batchScanCallback: OnBatchScanCallback
-    ): BleResult {
+    ): BaseResult {
         return suspendCancellableCoroutine {
             val callback = object : ScanCallback() {
 
@@ -42,7 +42,7 @@ class SimpleBleScanner {
                     super.onScanFailed(errorCode)
                     isScanningLiveData.value=false
                     if (it.isActive) {
-                        it.resume(BleResult.Failed(Exception("Scan fail,code:$errorCode")))
+                        it.resume(BaseResult.Failed(Exception("Scan fail,code:$errorCode")))
                     }
                 }
 
@@ -62,7 +62,7 @@ class SimpleBleScanner {
                 e.printStackTrace()
                 isScanningLiveData.value=false
                 if (it.isActive) {
-                    it.resume(BleResult.Failed(e))
+                    it.resume(BaseResult.Failed(e))
                 }
             }
         }

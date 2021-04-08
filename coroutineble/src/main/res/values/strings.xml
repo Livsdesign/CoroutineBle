@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="title_authorization">Authorization</string>
+    <string name="hint_authorization">For the normal use of the APP, the APP needs to use the following permissions and functions, please follow the prompts to enable the corresponding functions and authorize the APP to use the following permissions.</string>
+    <string name="params_bt">Bluetooth</string>
+    <string name="hint_bt">The APP needs to use the Bluetooth function to discover Bluetooth devices and realize connection control.</string>
+    <string name="btn_enable">Enable</string>
+    <string name="btn_activated">Activated</string>
+    <string name="btn_authorized">Authorized</string>
+    <string name="params_func_location">Location function</string>
+    <string name="hint_func_location">The APP needs to use the Location function to accurately measure the signal strength of the Bluetooth device, otherwise the device cannot be found.</string>
+    <string name="params_permission_location">Location permissions</string>
+    <string name="hint_permission_location">App requires authorization to use Location function</string>
+    <string name="btn_allow">Authorize</string>
+    <string name="cancel">Cancel</string>
+</resources>
