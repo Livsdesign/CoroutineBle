@@ -34,7 +34,7 @@ class SimpleBleScanner {
         @IntRange(from = -1, to = 2) scanMode: Int = defaultScanMode,
         filters: List<ScanFilter> = defaultFilters,
         batchScanCallback: OnBatchScanCallback
-    ): BaseResult {
+    ): BaseResult<Boolean> {
         return suspendCancellableCoroutine {
             val callback = object : ScanCallback() {
 
@@ -57,6 +57,7 @@ class SimpleBleScanner {
             try {
                 BluetoothLeScannerCompat.getScanner()
                     .startScan(filters, createSetting(scanMode), callback)
+                it.resume(BaseResult.Success(true))
                 isScanningLiveData.value=true
             } catch (e: Exception) {
                 e.printStackTrace()
