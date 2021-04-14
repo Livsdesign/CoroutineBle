@@ -226,6 +226,13 @@ class BleConnection {
         }
     }
 
+    fun stopNotification(
+        uuid_service: String,
+        uuid_notify: String
+    ): Boolean {
+        return BleManager.getInstance().stopNotify(mDevice, uuid_service, uuid_notify)
+    }
+
     suspend fun setupIndicate(
         uuid_service: String,
         uuid_notify: String,
@@ -263,6 +270,13 @@ class BleConnection {
                 )
             }
         }
+    }
+
+    fun stopIndicate(
+        uuid_service: String,
+        uuid_indicate: String
+    ): Boolean {
+        return BleManager.getInstance().stopIndicate(mDevice, uuid_service, uuid_indicate)
     }
 
     suspend fun setMtu(size: Int): BaseResult<Int> {
