@@ -1,7 +1,11 @@
 plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
+    id 'maven-publish'
 }
+
+group = 'com.livsdesign.coroutineble'
+version = '1.0.0'
 
 android {
     compileSdk 32
@@ -35,3 +39,32 @@ dependencies {
     api "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0"
     api "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0"
 }
+
+afterEvaluate {
+    publishing {
+        publications {
+            // Creates a Maven publication called "release".
+            release(MavenPublication) {
+                from components.release
+                groupId = 'com.livsdesign.coroutineble'
+                artifactId = 'coroutineble'
+                version = '1.0.0'
+            }
+        }
+    }
+}
+
+// ./gradlew makejar //名字:makejar
+task makeJar(type: Copy) {
+    //删除存在的（注意mylibrary是自己命名的，名字随便改）
+    delete 'build/libs/coroutineble.jar'
+    //设置拷贝的文件，需要根据AS的版本找到响应的文件夹
+    from('build/intermediates/compile_library_classes_jar/release')
+    //jar包最后的文件目录
+    into('build/libs/')
+    //include ,exclude参数来设置过滤（我们只关心classes.jar这个文件）
+    include('classes.jar')
+    //重命名（注意mylibrary是自己命名的，名字随便改）
+    rename('classes.jar', 'coroutineble.jar')
+}
+makeJar.dependsOn(build)
