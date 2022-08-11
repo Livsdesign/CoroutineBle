@@ -1,4 +1,4 @@
-package com.livsdesign.coroutineble.model
+ package com.livsdesign.coroutineble.model
 
 import android.annotation.SuppressLint
 import android.bluetooth.*
