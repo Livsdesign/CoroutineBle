@@ -6,11 +6,10 @@ import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.livsdesign.coroutineble.BleScanner
 import com.livsdesign.coroutineble.model.BleDevice
+import com.livsdesign.coroutineble.scanPeripheral
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -18,7 +17,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 class ScanViewModel : ViewModel() {
     private val TAG = "ScanViewModel"
 
-    private val scanner = BleScanner()
     private val deviceCache = mutableMapOf<String, BleDevice>()
     private var sortedList = mutableListOf<String>()
     val devices = mutableStateOf<List<BleDevice>>(emptyList())
@@ -28,7 +26,7 @@ class ScanViewModel : ViewModel() {
     fun startScan(context: Context) {
         stopScan()
         scanJob = viewModelScope.launch {
-            scanner.discover(context).catch {
+            context.scanPeripheral().catch {
                 Log.e("TAG", "startScan: ${it.message}")
             }.collect {
                 Log.e(TAG, "startScan: " )

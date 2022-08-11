@@ -8,6 +8,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,10 +20,14 @@ import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.rememberPermissionState
+import com.livsdesign.coroutineble.model.BleFactor
+import com.livsdesign.coroutineble.model.bleFactorMonitor
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun ConditionView(state: Int) {
+fun ConditionView() {
 
     val locationPermissionState = rememberPermissionState(
         android.Manifest.permission.ACCESS_FINE_LOCATION
@@ -43,20 +49,23 @@ fun ConditionView(state: Int) {
         } else {
             null
         }
-    val model = ConditionsModel(
-        state,
-        requestConnectPermission = {
-            connectPermissionState?.launchPermissionRequest()
-        },
-        requestScanPermission = {
-            scanPermissionState?.launchPermissionRequest()
-        },
-        requestLocationPermission = {
-            locationPermissionState.launchPermissionRequest()
-        })
 
 
     val context = LocalContext.current
+    val model = context.bleFactorMonitor().map {
+        ConditionsModel(
+            it,
+            requestConnectPermission = {
+                connectPermissionState?.launchPermissionRequest()
+            },
+            requestScanPermission = {
+                scanPermissionState?.launchPermissionRequest()
+            },
+            requestLocationPermission = {
+                locationPermissionState.launchPermissionRequest()
+            })
+    }.collectAsState()
+
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         Text("Warning", style = MaterialTheme.typography.h4)
         Text(

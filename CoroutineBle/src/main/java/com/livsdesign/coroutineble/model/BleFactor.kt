@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
@@ -78,8 +79,10 @@ fun Context.bleFactorMonitor() = callbackFlow {
     intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED)
     intentFilter.addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
     registerReceiver(receiver, intentFilter)
+    Log.d("bleFactorMonitor", "registerReceiver")
 
     awaitClose {
+        Log.d("bleFactorMonitor", "unregisterReceiver")
         unregisterReceiver(receiver)
     }
 }
