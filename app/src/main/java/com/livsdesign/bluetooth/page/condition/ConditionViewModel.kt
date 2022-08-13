@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
@@ -22,34 +23,49 @@ import kotlinx.coroutines.launch
 
 class ConditionViewModel : ViewModel() {
 
-
     var items = mutableStateOf<List<ConditionItemModel>>(emptyList())
     var ready = mutableStateOf(false)
 
     private var job: Job? = null
 
-    fun onResume(context: Context) {
-        Log.e("TAG", "onResume")
+    @OptIn(ExperimentalPermissionsApi::class)
+    fun onResume(
+        context: Context,
+        locationPermissionState: PermissionState,
+        scanPermissionState: PermissionState?,
+        connectPermissionState: PermissionState?
+    ) {
         job?.takeIf { it.isActive }?.apply { cancel() }
         job = viewModelScope.launch {
             context.bleFactorMonitor().collect {
                 ready.value = it.scanAndConnectReady()
-                it.updateItems()
+                it.updateItems(locationPermissionState, scanPermissionState, connectPermissionState)
             }
         }
     }
 
     fun onStop() {
-        Log.e("TAG", "onStop")
         job?.takeIf { it.isActive }?.apply { cancel() }
     }
 
-    private fun BleFactor.updateItems() {
+    @OptIn(ExperimentalPermissionsApi::class)
+    private fun BleFactor.updateItems(
+        locationPermissionState: PermissionState,
+        scanPermissionState: PermissionState?,
+        connectPermissionState: PermissionState?
+    ) {
         val connectBean = ConditionItemModel(
             if (bluetoothConnectPermission) "Connect Permission Ready" else "Connect permission not granted",
             if (bluetoothConnectPermission) "Ready" else "Grant",
             bluetoothConnectPermission.not()
         ) {
+            connectPermissionState?.apply {
+                if (permissionRequested && !shouldShowRationale) {
+                    it.manualGrant()
+                } else {
+                   launchPermissionRequest()
+                }
+            }
         }
 
         val scanBean = ConditionItemModel(
@@ -57,6 +73,13 @@ class ConditionViewModel : ViewModel() {
             if (bluetoothScanPermission) "Ready" else "Grant",
             bluetoothScanPermission.not()
         ) {
+            scanPermissionState?.apply {
+                if (permissionRequested && !shouldShowRationale) {
+                    it.manualGrant()
+                } else {
+                    launchPermissionRequest()
+                }
+            }
         }
 
         val bluetoothBean = ConditionItemModel(
@@ -91,8 +114,30 @@ class ConditionViewModel : ViewModel() {
             if (locationPermission) "Ready" else "Grant",
             locationPermission.not()
         ) {
+            if (locationPermissionState.permissionRequested && !locationPermissionState.shouldShowRationale) {
+                it.manualGrant()
+            } else {
+                locationPermissionState.launchPermissionRequest()
+            }
         }
         items.value =
             listOf(bluetoothBean, scanBean, connectBean, locationBean, locationPermissionBean)
     }
+}
+
+data class ConditionItemModel(
+    val content: String,
+    val btnContent: String,
+    val enable: Boolean,
+    val action: (Context) -> Unit
+)
+
+/**
+ * 跳转到设置页面
+ */
+fun Context.manualGrant() {
+    val intent = Intent()
+    intent.action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+    intent.data = Uri.parse("package:$packageName")
+    startActivity(intent)
 }
