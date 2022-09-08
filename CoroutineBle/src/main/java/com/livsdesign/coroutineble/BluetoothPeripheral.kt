@@ -28,7 +28,7 @@ class BluetoothPeripheral(
 ) {
 
     init {
-        if(device.type == BluetoothDevice.DEVICE_TYPE_CLASSIC){
+        if (device.type == BluetoothDevice.DEVICE_TYPE_CLASSIC) {
             throw IllegalStateException("Not support Bluetooth Classic device")
         }
     }
@@ -49,9 +49,6 @@ class BluetoothPeripheral(
         request.report()
         if (mGatt == null) return false
         _connectionState.value = ConnectionState.CONNECTING
-        _connectionState.first {
-            it == ConnectionState.CONNECTED
-        }
         val state = _connectionState.first {
             when (it) {
                 ConnectionState.CONNECTED, ConnectionState.DISCONNECTED, ConnectionState.LOST, ConnectionState.FAILED -> true
@@ -227,7 +224,7 @@ class BluetoothPeripheral(
     // private Core logic
     ///////////////////////////////////////////////////////////////////////////
 
-    // LOCK 虽然BluetoothGatt内部存在mDeviceBusy lock
+    // LOCK 防止代码块并发
     private val bleOperationMutex = Mutex()
     private var coroutineScope = CoroutineScope(Dispatchers.Main)
     private var mGatt: BluetoothGatt? = null
@@ -237,7 +234,7 @@ class BluetoothPeripheral(
     //主动断开
     private var activeClose = false
 
-    private val gattCallback = object : BluetoothGattCallback() {
+    private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
 
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             _connectionState.value = when (newState) {
@@ -306,6 +303,7 @@ class BluetoothPeripheral(
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             BleResponse.OnMtuChanged(mtu, status).report()
         }
+
     }
 
     private suspend inline fun <reified T : BleResponse> BleRequest.handle(): T? {
@@ -368,6 +366,10 @@ class BluetoothPeripheral(
             e.printStackTrace()
         }
     }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // experimental
+    ///////////////////////////////////////////////////////////////////////////
 
 
 }
