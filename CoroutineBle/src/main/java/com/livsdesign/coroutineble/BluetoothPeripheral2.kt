@@ -27,13 +27,7 @@ class BluetoothPeripheral2(
     private val device: BluetoothDevice
 ) {
 
-    init {
-        if (device.type == BluetoothDevice.DEVICE_TYPE_CLASSIC) {
-            throw IllegalStateException("Not support Bluetooth Classic device")
-        }
-    }
-
-    private var callbackScope = CoroutineScope(Dispatchers.Main)
+    private var callbackScope = CoroutineScope(Dispatchers.Default)
 
     private val _connectionState = MutableStateFlow(ConnectionState.IDLE)
     private val _mtuState = MutableStateFlow(23)
@@ -215,7 +209,7 @@ class BluetoothPeripheral2(
         phy: Int?,
         gattCallback: BluetoothGattCallback
     ): BluetoothGatt? {
-        if (!callbackScope.isActive) callbackScope = CoroutineScope(Dispatchers.Main)
+        if (!callbackScope.isActive) callbackScope = CoroutineScope(Dispatchers.Default)
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && phy != null) {
             device.connectGatt(
                 context,
@@ -344,9 +338,20 @@ class BluetoothPeripheral2(
         }
     }
 
+    val connectionState: StateFlow<ConnectionState> = _connectionState
+    val mtuState: StateFlow<Int> = _mtuState
+    val notifyDataState: SharedFlow<BluetoothData> = _notifyDataState
+    val services: StateFlow<List<BluetoothGattService>> = _services
+
+    init {
+        if (device.type == BluetoothDevice.DEVICE_TYPE_CLASSIC) {
+            throw IllegalStateException("Not support Bluetooth Classic device")
+        }
+    }
+
 }
 
- class BluetoothData(
+class BluetoothData(
     val uuid: UUID,
     val data: ByteArray
 ) {
