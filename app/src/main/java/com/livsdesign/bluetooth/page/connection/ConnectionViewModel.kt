@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.livsdesign.coroutineble.BluetoothPeripheral
+import com.livsdesign.coroutineble.BluetoothPeripheral2
+import com.livsdesign.coroutineble.WriteType
 import com.livsdesign.coroutineble.model.ConnectionState.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
@@ -14,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class ConnectionVMFactory(
-    private val peripheral: BluetoothPeripheral
+    private val peripheral: BluetoothPeripheral2
 ) : ViewModelProvider.NewInstanceFactory() {
 
     @Suppress("UNCHECKED_CAST")
@@ -23,7 +25,7 @@ class ConnectionVMFactory(
     }
 }
 
-class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewModel() {
+class ConnectionViewModel(private val peripheral: BluetoothPeripheral2) : ViewModel() {
 
     val state = peripheral.connectionState
     val services = mutableStateOf<List<BleService>>(emptyList())
@@ -46,7 +48,7 @@ class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewMod
 
     override fun onCleared() {
         super.onCleared()
-        peripheral.release()
+        peripheral.disconnect()
     }
 
     fun handleProperty(
@@ -61,7 +63,12 @@ class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewMod
                 is CharacteristicProperty.Read -> read(parent)
                 is CharacteristicProperty.Write -> {
                     val randomBytes = Random.nextBytes(10)
-                    if (peripheral.write(parent.characteristic, randomBytes)) {
+                    if (peripheral.write(
+                            parent.characteristic,
+                            WriteType.WithResponse,
+                            randomBytes
+                        )
+                    ) {
                         parent.lastValue.value = randomBytes
                     } else {
                         Toast.makeText(context, "Write Failed", Toast.LENGTH_LONG).show()
@@ -69,7 +76,7 @@ class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewMod
                 }
                 is CharacteristicProperty.WriteSigned -> {
                     val randomBytes = Random.nextBytes(10)
-                    if (peripheral.writeSigned(parent.characteristic, randomBytes)) {
+                    if (peripheral.write(parent.characteristic, WriteType.Signed, randomBytes)) {
                         parent.lastValue.value = randomBytes
                     } else {
                         Toast.makeText(context, "Write Failed", Toast.LENGTH_LONG).show()
@@ -77,7 +84,12 @@ class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewMod
                 }
                 is CharacteristicProperty.WriteWithoutResponse -> {
                     val randomBytes = Random.nextBytes(10)
-                    if (peripheral.writeWithoutResponse(parent.characteristic, randomBytes)) {
+                    if (peripheral.write(
+                            parent.characteristic,
+                            WriteType.WithoutResponse,
+                            randomBytes
+                        )
+                    ) {
                         parent.lastValue.value = randomBytes
                     } else {
                         Toast.makeText(context, "Write Failed", Toast.LENGTH_LONG).show()
@@ -91,33 +103,33 @@ class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewMod
     ///////////////////////////////////////////////////////////////////////////
     private val notifyJobMap = mutableMapOf<String, Job>()
     private fun toggleNotify(parent: BleCharacteristic, property: CharacteristicProperty) {
-        if (property is CharacteristicProperty.Notify) {
-            notifyJobMap[parent.uuidString]?.takeIf { it.isActive }?.apply { cancel() }
-            if (property.enable.value) {
-                property.enable.value = false
-            } else {
-                val job = viewModelScope.launch {
-                    peripheral.notifications(parent.characteristic).catch { }.collect {
-                        parent.lastValue.value = it
-                    }
-                }
-                property.enable.value = true
-                notifyJobMap[parent.uuidString] = job
-            }
-        } else if (property is CharacteristicProperty.Indicate) {
-            notifyJobMap[parent.uuidString]?.takeIf { it.isActive }?.apply { cancel() }
-            if (property.enable.value) {
-                property.enable.value = false
-            } else {
-                val job = viewModelScope.launch {
-                    peripheral.notifications(parent.characteristic).catch { }.collect {
-                        parent.lastValue.value = it
-                    }
-                }
-                property.enable.value = true
-                notifyJobMap[parent.uuidString] = job
-            }
-        }
+//        if (property is CharacteristicProperty.Notify) {
+//            notifyJobMap[parent.uuidString]?.takeIf { it.isActive }?.apply { cancel() }
+//            if (property.enable.value) {
+//                property.enable.value = false
+//            } else {
+//                val job = viewModelScope.launch {
+//                    peripheral.notifications(parent.characteristic).catch { }.collect {
+//                        parent.lastValue.value = it
+//                    }
+//                }
+//                property.enable.value = true
+//                notifyJobMap[parent.uuidString] = job
+//            }
+//        } else if (property is CharacteristicProperty.Indicate) {
+//            notifyJobMap[parent.uuidString]?.takeIf { it.isActive }?.apply { cancel() }
+//            if (property.enable.value) {
+//                property.enable.value = false
+//            } else {
+//                val job = viewModelScope.launch {
+//                    peripheral.notifications(parent.characteristic).catch { }.collect {
+//                        parent.lastValue.value = it
+//                    }
+//                }
+//                property.enable.value = true
+//                notifyJobMap[parent.uuidString] = job
+//            }
+//        }
     }
 
     private fun cancelAllNotify() {
@@ -137,7 +149,10 @@ class ConnectionViewModel(private val peripheral: BluetoothPeripheral) : ViewMod
         viewModelScope.launch {
             state.collect {
                 services.value = if (it == CONNECTED) {
-                    peripheral.discoverServices().map { gattService ->
+//                    peripheral.discoverServices().map { gattService ->
+//                        BleService(gattService)
+//                    }
+                    peripheral.services.value.map { gattService ->
                         BleService(gattService)
                     }
                 } else {

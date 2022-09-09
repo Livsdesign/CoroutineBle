@@ -121,9 +121,15 @@ class BluetoothPeripheral2(
             characteristic: BluetoothGattCharacteristic,
             status: Int
         ) {
+            Log.d(
+                "TAG",
+                "onCharacteristicWrite() called with: gatt = $gatt, characteristic = $characteristic, status = $status"
+            )
             if (batchWriteTasksUseCase.isActive()) {
+                Log.d("TAG", "batchWriteTasksUseCase")
                 batchWriteTasksUseCase.onCharacteristicWrite(gatt, characteristic, status)
             } else if (writeUseCase.isActive()) {
+                Log.d("TAG", "writeUseCase")
                 writeUseCase.onCharacteristicWrite(gatt, characteristic, status)
             }
         }

@@ -26,6 +26,7 @@ import com.livsdesign.coroutineble.BluetoothPeripheral
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import com.google.accompanist.flowlayout.FlowRow
+import com.livsdesign.coroutineble.BluetoothPeripheral2
 import com.livsdesign.coroutineble.model.ConnectionState
 import com.livsdesign.coroutineble.model.ConnectionState.*
 import com.livsdesign.coroutineble.toHexString
@@ -40,13 +41,13 @@ fun ConnectionView(
     if (device == null) {
         InvalidPeripheralView(navHostController, mac)
     } else {
-        val peripheral = BluetoothPeripheral(context, device)
+        val peripheral = BluetoothPeripheral2(context, device)
         ValidPeripheralView(navHostController, peripheral)
     }
 }
 
 @Composable
-fun ValidPeripheralView(navHostController: NavHostController, peripheral: BluetoothPeripheral) {
+fun ValidPeripheralView(navHostController: NavHostController, peripheral: BluetoothPeripheral2) {
 
     val viewModel = viewModel<ConnectionViewModel>(factory = ConnectionVMFactory(peripheral))
     val connectionState = viewModel.state.collectAsState()
