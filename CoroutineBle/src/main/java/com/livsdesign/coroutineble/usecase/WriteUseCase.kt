@@ -14,7 +14,6 @@ import kotlin.coroutines.resumeWithException
 
 
 class WriteUseCase() {
-    private val TAG = "WriteUseCase"
 
     private var callback: WriteCallback? = null
     private var cancellableContinuation: CancellableContinuation<Boolean>? = null
@@ -24,7 +23,6 @@ class WriteUseCase() {
         characteristic: BluetoothGattCharacteristic,
         status: Int
     ) {
-        Log.e(TAG, "onCharacteristicWrite: " )
         callback?.invoke(gatt, characteristic, status)
     }
 
@@ -65,11 +63,8 @@ class WriteUseCase() {
             characteristic.value = value
 
             if (!gatt.writeCharacteristic(characteristic)) {
-                Log.e(TAG, "false: ${value.toHexString(',')}")
                 this.callback = null
                 if (it.isActive) it.resume(false)
-            }else{
-                Log.e(TAG, "true: ${value.toHexString(',')}")
             }
         }
     }
