@@ -52,7 +52,7 @@ class WriteUseCase() {
             WriteType.WithoutResponse -> BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE
             WriteType.Signed -> BluetoothGattCharacteristic.PROPERTY_SIGNED_WRITE
         }
-        if (characteristic.hasProperty(writeProperty)) {
+        if (!characteristic.hasProperty(writeProperty)) {
             this.callback = null
             it.resumeWithException(IllegalArgumentException("This characteristic not support ${type.name}"))
         } else {
